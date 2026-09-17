@@ -36,7 +36,7 @@ export default function DetailPage({ item, allContent, myList, onToggleList, onB
           <Player item={playingItem} onClose={() => { setShowPlayer(false); setActiveEpisode(null) }} />
         </div>
         {item.type === 'series' && item.seasonsData?.length ? (
-          <EpisodeRail series={item} onPlay={episode => setActiveEpisode(episode)} />
+          <EpisodeRail series={item} currentEpisodeId={activeEpisode?.id} onPlay={episode => setActiveEpisode(episode)} />
         ) : similar.length > 0 && (
           <section className="watch-related">
             <div className="watch-related-heading">

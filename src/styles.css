@@ -1047,3 +1047,51 @@ footer p { margin: 0; }
   transition: all .18s;
 }
 .genre-active-bar > button:hover { color: var(--text); border-color: #555; }
+
+/* ── Hero trailer button ─────────────────────────────────────── */
+.btn-trailer-hero {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 12px 20px; background: rgba(255,255,255,.12); color: #fff;
+  font-weight: 600; font-size: 14px; border-radius: 6px;
+  border: 1px solid rgba(255,255,255,.2); backdrop-filter: blur(4px);
+  transition: background .2s;
+}
+.btn-trailer-hero:hover { background: rgba(255,255,255,.22); }
+
+/* ── Card title 2-line clamp ─────────────────────────────────── */
+.card-info strong {
+  font: 600 13px 'Space Grotesk';
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; white-space: normal; line-height: 1.35;
+}
+
+/* ── Next episode button ─────────────────────────────────────── */
+.next-ep-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; background: var(--accent); color: #fff;
+  font: 600 12px 'Space Grotesk'; border-radius: 6px;
+  transition: background .2s;
+}
+.next-ep-btn:hover { background: #c0070f; }
+
+/* ── Currently playing episode highlight ────────────────────── */
+.watch-episode-row.playing { background: rgba(229,9,20,.08); border-radius: 6px; }
+.watch-episode-row.playing .watch-episode-number { color: var(--accent); }
+.watch-episode-row.playing .watch-episode-play { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* ── Mobile nav tap targets ──────────────────────────────────── */
+@media (max-width: 900px) {
+  .main-nav.open button { padding: 14px 16px; font-size: 15px; width: 100%; text-align: left; }
+}
+
+/* ── Mobile detail page — hide poster, use backdrop only ──────── */
+@media (max-width: 580px) {
+  .detail-poster-col { display: none; }
+  .detail-hero { padding-top: 16px; }
+  .detail-backdrop { height: 50vh; }
+}
+
+/* ── Episode grid max 2 cols on wide ─────────────────────────── */
+@media (min-width: 1200px) {
+  .episode-grid { grid-template-columns: repeat(2, 1fr); }
+}

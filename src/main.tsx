@@ -118,8 +118,8 @@ function Row({ title, items, onSelect, icon }: {
 }
 
 // ── Rotating Hero Banner ──────────────────────────────────────
-function HeroBanner({ items, onPlay, onInfo }: {
-  items: Content[]; onPlay: (m: Content) => void; onInfo: (m: Content) => void
+function HeroBanner({ items, onPlay, onInfo, onTrailer }: {
+  items: Content[]; onPlay: (m: Content) => void; onInfo: (m: Content) => void; onTrailer: (m: Content) => void
 }) {
   const [idx, setIdx] = useState(0)
   const [fade, setFade] = useState(true)
@@ -128,11 +128,8 @@ function HeroBanner({ items, onPlay, onInfo }: {
     if (items.length <= 1) return
     const t = setInterval(() => {
       setFade(false)
-      setTimeout(() => {
-        setIdx(i => (i + 1) % items.length)
-        setFade(true)
-      }, 400)
-    }, 8000)
+      setTimeout(() => { setIdx(i => (i + 1) % items.length); setFade(true) }, 400)
+    }, 12000) // slowed to 12s
     return () => clearInterval(t)
   }, [items.length])
 
@@ -153,7 +150,7 @@ function HeroBanner({ items, onPlay, onInfo }: {
           <span className="pill">{item.rating}</span>
           <span>{item.duration}</span>
           {item.imdb && <span className="imdb-pill"><Star size={11} fill="#f5c518" color="#f5c518" /> {item.imdb}</span>}
-          {item.genre && <span className="hero-genre-pill">{item.genre}</span>}
+          {item.genre && <span className="hero-genre-pill">{item.genre.split(',')[0].trim()}</span>}
         </div>
         <p className="hero-desc">{item.description}</p>
         <div className="hero-actions">
@@ -161,20 +158,20 @@ function HeroBanner({ items, onPlay, onInfo }: {
             <Play size={16} fill="currentColor" />
             {getResume(item.id) > 5 ? 'Resume' : 'Play'}
           </button>
+          {item.trailerUrl && (
+            <button className="btn-trailer-hero" onClick={() => onTrailer(item)}>
+              <Play size={15} /> Trailer
+            </button>
+          )}
           <button className="btn-secondary" onClick={() => onInfo(item)}><Info size={16} /> More Info</button>
         </div>
       </div>
-
-      {/* dot indicators */}
       {items.length > 1 && (
         <div className="hero-dots">
           {items.slice(0, 8).map((_, i) => (
-            <button
-              key={i}
-              className={`hero-dot${i === idx ? ' active' : ''}`}
+            <button key={i} className={`hero-dot${i === idx ? ' active' : ''}`}
               onClick={() => { setFade(false); setTimeout(() => { setIdx(i); setFade(true) }, 400) }}
-              aria-label={`Go to slide ${i + 1}`}
-            />
+              aria-label={`Go to slide ${i + 1}`} />
           ))}
         </div>
       )}
@@ -227,8 +224,22 @@ function App() {
     setPage(p); setMenuOpen(false); setDetailItem(null); setSearchVal('')
   }
 
-  const openDetail = (item: Content) => { setDetailItem(item); setPlayerItem(null) }
-  const openPlayer = (item: Content) => { setPlayerItem(item) }
+  const openDetail = (item: Content) => {
+    setDetailItem(item)
+    setPlayerItem(null)
+    document.title = `${item.title} — Cineflix`
+  }
+  const openPlayer = (item: Content) => {
+    setPlayerItem(item)
+    document.title = `▶ ${item.title} — Cineflix`
+  }
+
+  // reset title when back on main shell
+  useEffect(() => {
+    if (!detailItem && !playerItem) document.title = 'Cineflix | World of Entertainment'
+  }, [detailItem, playerItem])
+
+  const [heroTrailer, setHeroTrailer] = useState<Content | null>(null)
 
   const removeFromHistory = (id: string) => { clearResume(id); forceUpdate(n => n + 1) }
 
@@ -363,7 +374,7 @@ function App() {
         )}
         {searchVal.length <= 1 && page === 'home' && !contentLoading && ALL_CONTENT.length > 0 && (
           <>
-            <HeroBanner items={ALL_CONTENT.slice(0, 8)} onPlay={openPlayer} onInfo={openDetail} />
+            <HeroBanner items={ALL_CONTENT.slice(0, 8)} onPlay={openPlayer} onInfo={openDetail} onTrailer={setHeroTrailer} />
             <div className="rows-area">
 
               {/* Active genre banner */}
@@ -488,6 +499,23 @@ function App() {
         <p>World of entertainment.</p>
         <span className="footer-copy">© 2026 Cineflix. All rights reserved.</span>
       </footer>
+
+      {/* ── HERO TRAILER MODAL ── */}
+      {heroTrailer?.trailerUrl && (
+        <div className="trailer-backdrop" onClick={() => setHeroTrailer(null)} role="presentation">
+          <div className="trailer-box" onClick={e => e.stopPropagation()}>
+            <button className="trailer-close" onClick={() => setHeroTrailer(null)} aria-label="Close trailer">✕</button>
+            <p className="trailer-label">Official Trailer — {heroTrailer.title}</p>
+            <iframe
+              className="trailer-iframe"
+              src={`${heroTrailer.trailerUrl.includes('embed') ? heroTrailer.trailerUrl : heroTrailer.trailerUrl.replace('watch?v=', 'embed/')}?autoplay=1`}
+              title="Trailer"
+              allow="autoplay; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
