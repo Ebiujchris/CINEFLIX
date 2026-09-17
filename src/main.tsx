@@ -79,7 +79,20 @@ function Card({ item, onSelect }: { item: Content; onSelect: (m: Content) => voi
   )
 }
 
-// ── Row ───────────────────────────────────────────────────────
+// ── Section Row (landscape cards for movies/series blocks) ───
+function SectionRow({ items, onSelect }: { items: Content[]; onSelect: (m: Content) => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const scroll = (d: number) => ref.current?.scrollBy({ left: d * 340, behavior: 'smooth' })
+  return (
+    <div className="row-track-wrap">
+      <button className="row-arrow left"  onClick={() => scroll(-1)} aria-label="Scroll left"><ChevronLeft  size={20} /></button>
+      <div className="row-track" ref={ref}>
+        {items.map(m => <Card key={m.id} item={m} onSelect={onSelect} />)}
+      </div>
+      <button className="row-arrow right" onClick={() => scroll(1)}  aria-label="Scroll right"><ChevronRight size={20} /></button>
+    </div>
+  )
+}
 function Row({ title, items, onSelect, icon }: {
   title: string; items: Content[]
   onSelect: (m: Content) => void; icon?: React.ReactNode
@@ -296,7 +309,7 @@ function App() {
             <HeroBanner items={ALL_CONTENT.slice(0, 8)} onPlay={openPlayer} onInfo={openDetail} />
             <div className="rows-area">
 
-              {/* Continue Watching — only shows after watching something */}
+              {/* Continue Watching */}
               {resumed.length > 0 && (
                 <div className="row">
                   <div className="row-header">
@@ -312,10 +325,54 @@ function App() {
                 </div>
               )}
 
-              <Row title="Trending Now"       icon={<TrendingUp   size={16} />} items={ALL_CONTENT.slice(0, 10)}  onSelect={openDetail} />
-              <Row title="Movies"             icon={<Film         size={16} />} items={movies}                    onSelect={openDetail} />
-              <Row title="TV Series"          icon={<Tv           size={16} />} items={series}                    onSelect={openDetail} />
-              <Row title="New Releases"       icon={<Star         size={16} />} items={ALL_CONTENT.filter(c => c.badge === 'NEW')} onSelect={openDetail} />
+              {/* Trending */}
+              <Row
+                title="Trending Now"
+                icon={<TrendingUp size={16} />}
+                items={ALL_CONTENT.slice(0, 10)}
+                onSelect={openDetail}
+              />
+
+              {/* Movies section */}
+              {movies.length > 0 && (
+                <div className="section-block">
+                  <div className="section-block-header">
+                    <div className="section-block-title">
+                      <Film size={18} />
+                      <h2>Movies</h2>
+                    </div>
+                    <button className="section-see-all" onClick={() => navigate('movies')}>
+                      See all <ChevronRight size={14} />
+                    </button>
+                  </div>
+                  <div className="section-block-row">
+                    <div className="row-track-wrap">
+                      <SectionRow items={movies} onSelect={openDetail} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Series section */}
+              {series.length > 0 && (
+                <div className="section-block">
+                  <div className="section-block-header">
+                    <div className="section-block-title">
+                      <Tv size={18} />
+                      <h2>TV Series</h2>
+                    </div>
+                    <button className="section-see-all" onClick={() => navigate('series')}>
+                      See all <ChevronRight size={14} />
+                    </button>
+                  </div>
+                  <div className="section-block-row">
+                    <SectionRow items={series} onSelect={openDetail} />
+                  </div>
+                </div>
+              )}
+
+              {/* New & Originals */}
+              <Row title="New Releases"       icon={<Star        size={16} />} items={ALL_CONTENT.filter(c => c.badge === 'NEW')}              onSelect={openDetail} />
               <Row title="CINEFLIX Originals" icon={<Clapperboard size={16} />} items={ALL_CONTENT.filter(c => c.badge === 'CINEFLIX ORIGINAL')} onSelect={openDetail} />
             </div>
           </>

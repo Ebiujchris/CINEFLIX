@@ -198,7 +198,29 @@ main  { flex: 1; }
   font: 600 10px 'Space Grotesk'; padding: 3px 7px; border-radius: 4px;
 }
 
-/* ── Rows ────────────────────────────────────────────────────── */
+/* ── Section blocks (Movies / Series) ───────────────────────── */
+.section-block {
+  padding: 44px 0 0;
+}
+.section-block-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 5vw 20px;
+}
+.section-block-title {
+  display: flex; align-items: center; gap: 10px; color: var(--text);
+}
+.section-block-title h2 {
+  font: 700 22px 'Space Grotesk'; letter-spacing: -.5px;
+}
+.section-block-title svg { color: var(--accent); }
+.section-see-all {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; font-weight: 600; color: var(--accent);
+  padding: 6px 12px; border-radius: 20px;
+  border: 1px solid rgba(229,9,20,.3);
+  transition: background .18s, border-color .18s;
+}
+.section-see-all:hover { background: rgba(229,9,20,.1); border-color: var(--accent); }
 .rows-area { padding: 0 0 70px; }
 .row { padding: 38px 0 0; }
 .row-header { display: flex; align-items: center; gap: 9px; padding: 0 5vw 18px; }
