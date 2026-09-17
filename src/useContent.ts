@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Content, Season } from './data'
 
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000'
+const BASE = (import.meta.env.VITE_API_URL || 'http://localhost:4000').replace(/\/+$/, '')
 
 function mapApiItem(item: Record<string, unknown>): Content {
   const primary = (item.videos as Record<string, unknown>[] | undefined)?.find(
