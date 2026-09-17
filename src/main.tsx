@@ -200,8 +200,6 @@ function App() {
   const series    = ALL_CONTENT.filter(c => c.type === 'series')
   const watchlist = ALL_CONTENT.filter(c => myList.includes(c.id))
   const resumed   = ALL_CONTENT.filter(c => getResume(c.id) > 5)
-  // show recently added as "continue watching" placeholders if nothing watched yet
-  const cwItems   = resumed.length > 0 ? resumed : ALL_CONTENT.slice(0, 6)
 
   const filteredMovies = useMemo(
     () => movies.filter(m => movieGenre  === 'All' || m.genre === movieGenre),  [movieGenre, movies])
@@ -298,24 +296,27 @@ function App() {
             <HeroBanner items={ALL_CONTENT.slice(0, 8)} onPlay={openPlayer} onInfo={openDetail} />
             <div className="rows-area">
 
-              {/* Continue Watching */}
-              <div className="row">
-                <div className="row-header">
-                  <span className="row-icon"><RotateCcw size={15} /></span>
-                  <h3>{resumed.length > 0 ? 'Continue Watching' : 'Recently Added'}</h3>
+              {/* Continue Watching — only shows after watching something */}
+              {resumed.length > 0 && (
+                <div className="row">
+                  <div className="row-header">
+                    <span className="row-icon"><RotateCcw size={15} /></span>
+                    <h3>Continue Watching</h3>
+                    <span className="row-count">{resumed.length} title{resumed.length !== 1 ? 's' : ''}</span>
+                  </div>
+                  <div className="cw-row">
+                    {resumed.map(item => (
+                      <CWCard key={item.id} item={item} onSelect={openDetail} onRemove={removeFromHistory} />
+                    ))}
+                  </div>
                 </div>
-                <div className="cw-row">
-                  {cwItems.map(item => (
-                    <CWCard key={item.id} item={item} onSelect={openDetail} onRemove={removeFromHistory} />
-                  ))}
-                </div>
-              </div>
+              )}
 
-              <Row title="Trending Now"       icon={<TrendingUp   size={16} />} items={ALL_CONTENT.slice(0, 10)}                               onSelect={openDetail} />
+              <Row title="Trending Now"       icon={<TrendingUp   size={16} />} items={ALL_CONTENT.slice(0, 10)}  onSelect={openDetail} />
+              <Row title="Movies"             icon={<Film         size={16} />} items={movies}                    onSelect={openDetail} />
+              <Row title="TV Series"          icon={<Tv           size={16} />} items={series}                    onSelect={openDetail} />
+              <Row title="New Releases"       icon={<Star         size={16} />} items={ALL_CONTENT.filter(c => c.badge === 'NEW')} onSelect={openDetail} />
               <Row title="CINEFLIX Originals" icon={<Clapperboard size={16} />} items={ALL_CONTENT.filter(c => c.badge === 'CINEFLIX ORIGINAL')} onSelect={openDetail} />
-              <Row title="Top Movies"         icon={<Film         size={16} />} items={movies}                                                 onSelect={openDetail} />
-              <Row title="Popular Series"     icon={<Tv           size={16} />} items={series}                                                 onSelect={openDetail} />
-              <Row title="New Releases"       icon={<Star         size={16} />} items={ALL_CONTENT.filter(c => c.badge === 'NEW')}             onSelect={openDetail} />
             </div>
           </>
         )}

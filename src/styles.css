@@ -204,6 +204,7 @@ main  { flex: 1; }
 .row-header { display: flex; align-items: center; gap: 9px; padding: 0 5vw 18px; }
 .row-header h3 { font: 600 17px 'Space Grotesk'; letter-spacing: -.3px; }
 .row-icon { color: var(--accent); display: flex; }
+.row-count { margin-left: auto; font-size: 11px; color: var(--muted); }
 .row-track-wrap { position: relative; }
 .row-track {
   display: flex; gap: 10px; overflow-x: auto; padding: 6px 5vw 18px;
