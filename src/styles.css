@@ -1003,3 +1003,47 @@ footer p { margin: 0; }
   animation: spin .7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Genre dropdown ──────────────────────────────────────────── */
+.nav-genre-wrap { position: relative; }
+.nav-genre-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 13px; border-radius: 8px;
+  font-size: 13px; font-weight: 500; color: var(--muted);
+  transition: color .18s, background .18s;
+}
+.nav-genre-btn:hover, .nav-genre-btn.open { color: var(--text); background: rgba(255,255,255,.08); }
+.nav-genre-btn.filtered { color: var(--accent); }
+.nav-genre-btn svg:last-child { transition: transform .2s; }
+.nav-genre-btn.open svg:last-child { transform: rotate(180deg); }
+.genre-dropdown {
+  position: absolute; top: calc(100% + 10px); left: 0; z-index: 200;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 8px;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px;
+  min-width: 280px; box-shadow: 0 12px 40px rgba(0,0,0,.5);
+  animation: rise .18s ease-out;
+}
+.genre-dropdown button {
+  padding: 8px 12px; border-radius: 6px; text-align: left;
+  font-size: 12px; font-weight: 500; color: var(--muted);
+  transition: all .15s;
+}
+.genre-dropdown button:hover { color: var(--text); background: var(--bg3); }
+.genre-dropdown button.active { color: #fff; background: var(--accent); }
+
+/* ── Active genre bar ────────────────────────────────────────── */
+.genre-active-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 32px 5vw 0; padding: 12px 18px;
+  background: rgba(229,9,20,.08); border: 1px solid rgba(229,9,20,.2);
+  border-radius: 8px; font-size: 13px; color: #ccc;
+}
+.genre-active-bar strong { color: var(--accent); }
+.genre-active-bar > button {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 12px; color: var(--muted); padding: 5px 10px;
+  border-radius: 5px; border: 1px solid var(--border);
+  transition: all .18s;
+}
+.genre-active-bar > button:hover { color: var(--text); border-color: #555; }

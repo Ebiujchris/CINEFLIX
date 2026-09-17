@@ -1,9 +1,9 @@
 import { useMemo, useState, useRef, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import {
-  ChevronLeft, ChevronRight, Clapperboard,
+  ChevronLeft, ChevronRight, ChevronDown, Clapperboard,
   Film, Heart, Info, Menu, Play, Search, Star,
-  TrendingUp, Tv, X, Clock, RotateCcw,
+  TrendingUp, Tv, X, Clock, RotateCcw, Grid,
 } from 'lucide-react'
 import { MOVIE_GENRES, SERIES_GENRES, type Content } from './data'
 import { useContent } from './useContent'
@@ -195,6 +195,29 @@ function App() {
   const [searchVal,   setSearchVal]   = useState('')
   const [movieGenre,  setMovieGenre]  = useState('All')
   const [seriesGenre, setSeriesGenre] = useState('All')
+  const [genreOpen,   setGenreOpen]   = useState(false)
+  const [activeGenre, setActiveGenre] = useState<string | null>(null)
+  const genreRef = useRef<HTMLDivElement>(null)
+
+  // close genre dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (genreRef.current && !genreRef.current.contains(e.target as Node)) {
+        setGenreOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  // derive unique genres from loaded content
+  const allGenres = useMemo(() => {
+    const set = new Set<string>()
+    ALL_CONTENT.forEach(c => {
+      c.genre.split(',').forEach(g => { const t = g.trim(); if (t) set.add(t) })
+    })
+    return Array.from(set).sort()
+  }, [ALL_CONTENT])
   const [, forceUpdate]               = useState(0)
 
   const toggleList = (id: string) =>
@@ -209,10 +232,11 @@ function App() {
 
   const removeFromHistory = (id: string) => { clearResume(id); forceUpdate(n => n + 1) }
 
-  const movies    = ALL_CONTENT.filter(c => c.type === 'movie')
-  const series    = ALL_CONTENT.filter(c => c.type === 'series')
+  const movies    = ALL_CONTENT.filter(c => c.type === 'movie' && (!activeGenre || c.genre.toLowerCase().includes(activeGenre.toLowerCase())))
+  const series    = ALL_CONTENT.filter(c => c.type === 'series' && (!activeGenre || c.genre.toLowerCase().includes(activeGenre.toLowerCase())))
   const watchlist = ALL_CONTENT.filter(c => myList.includes(c.id))
   const resumed   = ALL_CONTENT.filter(c => getResume(c.id) > 5)
+  const filteredAll = activeGenre ? ALL_CONTENT.filter(c => c.genre.toLowerCase().includes(activeGenre.toLowerCase())) : ALL_CONTENT
 
   const filteredMovies = useMemo(
     () => movies.filter(m => movieGenre  === 'All' || m.genre === movieGenre),  [movieGenre, movies])
@@ -267,6 +291,39 @@ function App() {
               {p === 'watchlist' && `Watchlist${myList.length ? ` (${myList.length})` : ''}`}
             </button>
           ))}
+
+          {/* Genres dropdown */}
+          {allGenres.length > 0 && (
+            <div className="nav-genre-wrap" ref={genreRef}>
+              <button
+                className={`nav-genre-btn${genreOpen ? ' open' : ''}${activeGenre ? ' filtered' : ''}`}
+                onClick={() => setGenreOpen(v => !v)}
+              >
+                <Grid size={14} />
+                {activeGenre || 'Genres'}
+                <ChevronDown size={13} />
+              </button>
+              {genreOpen && (
+                <div className="genre-dropdown">
+                  <button
+                    className={!activeGenre ? 'active' : ''}
+                    onClick={() => { setActiveGenre(null); setGenreOpen(false) }}
+                  >
+                    All Genres
+                  </button>
+                  {allGenres.map(g => (
+                    <button
+                      key={g}
+                      className={activeGenre === g ? 'active' : ''}
+                      onClick={() => { setActiveGenre(g); setGenreOpen(false); navigate('home') }}
+                    >
+                      {g}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </nav>
 
         <div className="nav-right">
@@ -309,6 +366,14 @@ function App() {
             <HeroBanner items={ALL_CONTENT.slice(0, 8)} onPlay={openPlayer} onInfo={openDetail} />
             <div className="rows-area">
 
+              {/* Active genre banner */}
+              {activeGenre && (
+                <div className="genre-active-bar">
+                  <span><Grid size={14} /> Filtered by: <strong>{activeGenre}</strong></span>
+                  <button onClick={() => setActiveGenre(null)}><X size={13} /> Clear</button>
+                </div>
+              )}
+
               {/* Continue Watching */}
               {resumed.length > 0 && (
                 <div className="row">
@@ -325,55 +390,30 @@ function App() {
                 </div>
               )}
 
-              {/* Trending */}
-              <Row
-                title="Trending Now"
-                icon={<TrendingUp size={16} />}
-                items={ALL_CONTENT.slice(0, 10)}
-                onSelect={openDetail}
-              />
+              <Row title={activeGenre ? `Trending — ${activeGenre}` : 'Trending Now'} icon={<TrendingUp size={16} />} items={filteredAll.slice(0, 10)} onSelect={openDetail} />
 
-              {/* Movies section */}
               {movies.length > 0 && (
                 <div className="section-block">
                   <div className="section-block-header">
-                    <div className="section-block-title">
-                      <Film size={18} />
-                      <h2>Movies</h2>
-                    </div>
-                    <button className="section-see-all" onClick={() => navigate('movies')}>
-                      See all <ChevronRight size={14} />
-                    </button>
+                    <div className="section-block-title"><Film size={18} /><h2>Movies{activeGenre ? ` — ${activeGenre}` : ''}</h2></div>
+                    <button className="section-see-all" onClick={() => navigate('movies')}>See all <ChevronRight size={14} /></button>
                   </div>
-                  <div className="section-block-row">
-                    <div className="row-track-wrap">
-                      <SectionRow items={movies} onSelect={openDetail} />
-                    </div>
-                  </div>
+                  <SectionRow items={movies} onSelect={openDetail} />
                 </div>
               )}
 
-              {/* Series section */}
               {series.length > 0 && (
                 <div className="section-block">
                   <div className="section-block-header">
-                    <div className="section-block-title">
-                      <Tv size={18} />
-                      <h2>TV Series</h2>
-                    </div>
-                    <button className="section-see-all" onClick={() => navigate('series')}>
-                      See all <ChevronRight size={14} />
-                    </button>
+                    <div className="section-block-title"><Tv size={18} /><h2>TV Series{activeGenre ? ` — ${activeGenre}` : ''}</h2></div>
+                    <button className="section-see-all" onClick={() => navigate('series')}>See all <ChevronRight size={14} /></button>
                   </div>
-                  <div className="section-block-row">
-                    <SectionRow items={series} onSelect={openDetail} />
-                  </div>
+                  <SectionRow items={series} onSelect={openDetail} />
                 </div>
               )}
 
-              {/* New & Originals */}
-              <Row title="New Releases"       icon={<Star        size={16} />} items={ALL_CONTENT.filter(c => c.badge === 'NEW')}              onSelect={openDetail} />
-              <Row title="CINEFLIX Originals" icon={<Clapperboard size={16} />} items={ALL_CONTENT.filter(c => c.badge === 'CINEFLIX ORIGINAL')} onSelect={openDetail} />
+              {!activeGenre && <Row title="New Releases"       icon={<Star        size={16} />} items={ALL_CONTENT.filter(c => c.badge === 'NEW')}              onSelect={openDetail} />}
+              {!activeGenre && <Row title="CINEFLIX Originals" icon={<Clapperboard size={16} />} items={ALL_CONTENT.filter(c => c.badge === 'CINEFLIX ORIGINAL')} onSelect={openDetail} />}
             </div>
           </>
         )}
