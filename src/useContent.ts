@@ -32,10 +32,25 @@ function mapApiItem(item: Record<string, unknown>): Content {
     playbackUrl:     (primary?.playbackUrl as string) || undefined,
     captions:        [],
     seasonsData:     ((item.seasonsData as Record<string, unknown>[] | undefined) || []).map(season => ({
-      id: season.id as string, seasonNumber: season.seasonNumber as number, title: season.title as string | undefined,
+      id: season.id as string,
+      seasonNumber: season.seasonNumber as number,
+      title: season.title as string | undefined,
       episodes: ((season.episodes as Record<string, unknown>[] | undefined) || []).map(episode => {
-        const video = (episode.videos as Record<string, unknown>[] | undefined)?.find(v => v.isPrimary) || (episode.videos as Record<string, unknown>[] | undefined)?.[0]
-        return { id: episode.id as string, episodeNumber: episode.episodeNumber as number, title: episode.title as string, description: episode.description as string, duration: episode.duration as string | undefined, thumbnailUrl: episode.thumbnailUrl as string | undefined, isPublished: Boolean(episode.isPublished), provider: (video?.provider as Content['provider']) || 'YOUTUBE', embedUrl: video?.embedUrl as string | undefined, playbackUrl: video?.playbackUrl as string | undefined }
+        // episodes have a videos[] array — find the primary one
+        const vids = (episode.videos as Record<string, unknown>[] | undefined) || []
+        const video = vids.find(v => v.isPrimary) || vids[0]
+        return {
+          id:            episode.id as string,
+          episodeNumber: episode.episodeNumber as number,
+          title:         episode.title as string,
+          description:   episode.description as string,
+          duration:      episode.duration as string | undefined,
+          thumbnailUrl:  episode.thumbnailUrl as string | undefined,
+          isPublished:   Boolean(episode.isPublished),
+          provider:      (video?.provider as Content['provider']) || 'YOUTUBE',
+          embedUrl:      video?.embedUrl as string | undefined,
+          playbackUrl:   video?.playbackUrl as string | undefined,
+        }
       }),
     })) as Season[],
   }

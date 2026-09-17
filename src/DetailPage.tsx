@@ -141,17 +141,67 @@ export default function DetailPage({ item, allContent, myList, onToggleList, onB
 
           {item.type === 'series' && item.seasonsData && item.seasonsData.length > 0 && (
             <div className="series-episodes">
-              <div className="season-tabs">
-                {item.seasonsData.map(season => <button key={season.id} className={activeSeason === season.seasonNumber ? 'active' : ''} onClick={() => setActiveSeason(season.seasonNumber)}>Season {season.seasonNumber}</button>)}
+              {/* Season tabs */}
+              <div className="season-tabs-wrap">
+                <p className="ep-section-label">EPISODES</p>
+                <div className="season-tabs">
+                  {item.seasonsData.map(season => (
+                    <button
+                      key={season.id}
+                      className={activeSeason === season.seasonNumber ? 'active' : ''}
+                      onClick={() => setActiveSeason(season.seasonNumber)}
+                    >
+                      {season.title || `Season ${season.seasonNumber}`}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="episode-list">
-                {(item.seasonsData.find(season => season.seasonNumber === activeSeason)?.episodes || []).filter(episode => episode.isPublished).map(episode => (
-                  <article className="episode-row" key={episode.id}>
-                    <div className="episode-number">{String(episode.episodeNumber).padStart(2, '0')}</div>
-                    <div className="episode-copy"><h3>{episode.title}</h3><p>{episode.description}</p><span>{episode.duration || 'Episode'}</span></div>
-                    <button className="episode-play" onClick={() => { setActiveEpisode({ ...item, id: episode.id, title: episode.title, description: episode.description, longDescription: episode.description, image: episode.thumbnailUrl || item.image, backdrop: item.backdrop, duration: episode.duration || '', provider: episode.provider, embedUrl: episode.embedUrl, playbackUrl: episode.playbackUrl }); setShowPlayer(true) }} aria-label={`Play episode ${episode.episodeNumber}`}><Play size={17} fill="currentColor" /></button>
-                  </article>
-                ))}
+
+              {/* Episode grid */}
+              <div className="episode-grid">
+                {(item.seasonsData.find(s => s.seasonNumber === activeSeason)?.episodes || [])
+                  .filter(ep => ep.isPublished)
+                  .map(episode => (
+                    <button
+                      key={episode.id}
+                      className="ep-card"
+                      onClick={() => {
+                        setActiveEpisode({
+                          ...item,
+                          id:              episode.id,
+                          title:           `${item.title} — E${episode.episodeNumber}: ${episode.title}`,
+                          description:     episode.description,
+                          longDescription: episode.description,
+                          image:           episode.thumbnailUrl || item.image,
+                          backdrop:        item.backdrop,
+                          duration:        episode.duration || '',
+                          provider:        episode.provider,
+                          embedUrl:        episode.embedUrl,
+                          playbackUrl:     episode.playbackUrl,
+                        })
+                        setShowPlayer(true)
+                      }}
+                      aria-label={`Play episode ${episode.episodeNumber}`}
+                    >
+                      <div className="ep-thumb">
+                        <img
+                          src={episode.thumbnailUrl || item.backdrop || item.image}
+                          alt=""
+                          loading="lazy"
+                        />
+                        <div className="ep-thumb-overlay">
+                          <span className="ep-play-circle"><Play size={16} fill="currentColor" /></span>
+                        </div>
+                        <span className="ep-num">E{episode.episodeNumber}</span>
+                      </div>
+                      <div className="ep-info">
+                        <strong>{episode.title}</strong>
+                        <p>{episode.description}</p>
+                        {episode.duration && <span className="ep-dur"><Clock size={10} /> {episode.duration}</span>}
+                      </div>
+                    </button>
+                  ))
+                }
               </div>
             </div>
           )}
