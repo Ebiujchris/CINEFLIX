@@ -160,7 +160,6 @@ export default function DetailPage({ item, allContent, myList, onToggleList, onB
               {/* Episode grid */}
               <div className="episode-grid">
                 {(item.seasonsData.find(s => s.seasonNumber === activeSeason)?.episodes || [])
-                  .filter(ep => ep.isPublished)
                   .map(episode => (
                     <button
                       key={episode.id}
