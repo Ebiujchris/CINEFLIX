@@ -485,20 +485,22 @@ function App() {
               )}
 
               {/* Continue Watching */}
-              {resumed.length > 0 && (
-                <div className="row">
+              <div className="row continue-watching-row">
                   <div className="row-header">
                     <span className="row-icon"><RotateCcw size={15} /></span>
                     <h3>Continue Watching</h3>
-                    <span className="row-count">{resumed.length} title{resumed.length !== 1 ? 's' : ''}</span>
+                    {resumed.length > 0 && <span className="row-count">{resumed.length} title{resumed.length !== 1 ? 's' : ''}</span>}
                   </div>
-                  <div className="cw-row">
-                    {resumed.map(item => (
-                      <CWCard key={item.id} item={item} onSelect={openDetail} onRemove={removeFromHistory} />
-                    ))}
-                  </div>
+                  {resumed.length > 0 ? (
+                    <div className="cw-row">
+                      {resumed.map(item => (
+                        <CWCard key={item.id} item={item} onSelect={openDetail} onRemove={removeFromHistory} />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="continue-watching-empty">Start a movie or series and it will appear here.</p>
+                  )}
                 </div>
-              )}
 
               <Row title={activeGenre ? `Trending — ${activeGenre}` : 'Trending Now'} icon={<TrendingUp size={16} />} items={filteredAll.slice(0, 10)} onSelect={openDetail} />
 

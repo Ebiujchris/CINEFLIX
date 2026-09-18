@@ -90,6 +90,7 @@ main  { flex: 1; }
 .account-submit { display: flex; justify-content: center; align-items: center; gap: 7px; margin-top: 4px; padding: 12px; border-radius: 6px; background: var(--accent); color: #fff; font-weight: 700; }
 .account-submit:disabled { opacity: .6; cursor: wait; }
 .account-switch { width: 100%; margin-top: 18px; color: var(--accent); font-size: 12px; }
+.continue-watching-empty { padding: 16px 0 4px; color: var(--muted); font-size: 13px; }
 
 /* ── Hero ────────────────────────────────────────────────────── */
 .hero {
