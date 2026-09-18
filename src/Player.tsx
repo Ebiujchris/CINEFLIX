@@ -37,9 +37,9 @@ function fmt(s: number) {
 const QUALITIES = ['Auto', '2K', '1080p', '720p', '480p', '360p']
 const SPEEDS    = [0.5, 0.75, 1, 1.25, 1.5, 2]
 
-type Props = { item: Content; onClose: () => void }
+type Props = { item: Content; onClose: () => void; onProgress?: (position: number, duration: number) => void }
 
-export default function Player({ item, onClose }: Props) {
+export default function Player({ item, onClose, onProgress }: Props) {
   const videoRef   = useRef<HTMLVideoElement>(null)
   const wrapRef    = useRef<HTMLDivElement>(null)
   const resumePos  = getResume(item.id)
@@ -79,6 +79,7 @@ export default function Player({ item, onClose }: Props) {
     const onTime = () => {
       setCurrent(v.currentTime)
       saveResume(item.id, v.currentTime)
+      onProgress?.(v.currentTime, v.duration || 0)
       if (v.buffered.length) setBuffered(v.buffered.end(v.buffered.length - 1))
     }
     const onMeta = () => setDuration(v.duration)
@@ -94,7 +95,7 @@ export default function Player({ item, onClose }: Props) {
       v.removeEventListener('play', onPlay)
       v.removeEventListener('pause', onPause)
     }
-  }, [item.id])
+  }, [item.id, onProgress])
 
   // speed
   useEffect(() => { if (videoRef.current) videoRef.current.playbackRate = speed }, [speed])

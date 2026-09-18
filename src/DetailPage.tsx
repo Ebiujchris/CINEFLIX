@@ -16,9 +16,11 @@ type Props = {
   onBack: () => void
   onSelect: (item: Content) => void
   onNavigate: (page: 'home' | 'movies' | 'series' | 'watchlist') => void
+  onRequireAccount: () => void
+  onProgress: (item: Content, position: number, duration: number) => void
 }
 
-export default function DetailPage({ item, allContent, myList, onToggleList, onBack, onSelect, onNavigate }: Props) {
+export default function DetailPage({ item, allContent, myList, onToggleList, onBack, onSelect, onNavigate, onRequireAccount, onProgress }: Props) {
   const [showPlayer,  setShowPlayer]  = useState(false)
   const [showTrailer, setShowTrailer] = useState(false)
   const [activeEpisode, setActiveEpisode] = useState<Content | null>(null)
@@ -33,7 +35,7 @@ export default function DetailPage({ item, allContent, myList, onToggleList, onB
     return (
       <div className="watch-page">
         <div className="watch-stage">
-          <Player item={playingItem} onClose={() => { setShowPlayer(false); setActiveEpisode(null) }} />
+          <Player item={playingItem} onProgress={(position, duration) => onProgress(playingItem, position, duration)} onClose={() => { setShowPlayer(false); setActiveEpisode(null) }} />
         </div>
         {item.type === 'series' && item.seasonsData?.length ? (
           <EpisodeRail series={item} currentEpisodeId={activeEpisode?.id} onPlay={episode => setActiveEpisode(episode)} />
@@ -134,7 +136,7 @@ export default function DetailPage({ item, allContent, myList, onToggleList, onB
                 <Play size={16} /> Trailer
               </button>
             )}
-            <button className="btn-list-big" onClick={() => onToggleList(item.id)} aria-label={inList ? 'Remove from list' : 'Add to list'}>
+            <button className="btn-list-big" onClick={() => { if (!myList.includes(item.id) && !localStorage.getItem('cf_user_token')) onRequireAccount(); else onToggleList(item.id) }} aria-label={inList ? 'Remove from list' : 'Add to list'}>
               {inList ? <><Check size={16} /> In My List</> : <><Plus size={16} /> My List</>}
             </button>
           </div>

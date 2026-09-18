@@ -9,6 +9,8 @@ import { MOVIE_GENRES, SERIES_GENRES, type Content } from './data'
 import { useContent } from './useContent'
 import DetailPage from './DetailPage'
 import Player from './Player'
+import AccountDialog from './AccountDialog'
+import { addToWatchlist, clearAccount, getAccount, getLibrary, removeFromWatchlist, saveProgress, type AccountUser } from './account'
 import './styles.css'
 
 // ── URL hash routing helpers ──────────────────────────────────
@@ -207,6 +209,25 @@ function App() {
   const [activeGenre, setActiveGenre] = useState<string | null>(null)
   const genreRef = useRef<HTMLDivElement>(null)
   const [heroTrailer, setHeroTrailer] = useState<Content | null>(null)
+  const [account, setAccount] = useState<AccountUser | null>(() => getAccount())
+  const [accountOpen, setAccountOpen] = useState(false)
+  const progressSync = useRef<Record<string, number>>({})
+
+  useEffect(() => {
+    if (!account) return
+    getLibrary().then(library => {
+      try {
+        const resume: Record<string, number> = JSON.parse(localStorage.getItem('cf_resume') || '{}')
+        library.progress.forEach(entry => {
+          const key = entry.episodeId || entry.contentId
+          if (!entry.completed && entry.position > (resume[key] || 0)) resume[key] = entry.position
+        })
+        localStorage.setItem('cf_resume', JSON.stringify(resume))
+      } catch { /* local resume is optional */ }
+      setMyList(library.watchlist)
+      forceUpdate(n => n + 1)
+    }).catch(() => { clearAccount(); setAccount(null) })
+  }, [account?.id])
 
   // restore detail item from URL on content load
   useEffect(() => {
@@ -255,8 +276,24 @@ function App() {
   }, [ALL_CONTENT])
   const [, forceUpdate]               = useState(0)
 
-  const toggleList = (id: string) =>
-    setMyList(l => l.includes(id) ? l.filter(x => x !== id) : [...l, id])
+  const toggleList = async (id: string) => {
+    if (!account) { setAccountOpen(true); return }
+    const included = myList.includes(id)
+    setMyList(list => included ? list.filter(x => x !== id) : [...list, id])
+    try {
+      if (included) await removeFromWatchlist(id)
+      else await addToWatchlist(id)
+    } catch { setMyList(list => included ? [...list, id] : list.filter(x => x !== id)) }
+  }
+
+  const syncProgress = (item: Content, position: number, duration: number, contentId = item.id) => {
+    if (!account || position < 1) return
+    const key = `${contentId}:${item.id}`
+    const now = Date.now()
+    if (now - (progressSync.current[key] || 0) < 10000) return
+    progressSync.current[key] = now
+    saveProgress(contentId, position, duration, item.id === contentId ? undefined : item.id).catch(() => undefined)
+  }
 
   const navigate = (p: Page) => {
     setPage(p); setMenuOpen(false); setDetailItem(null); setSearchVal('')
@@ -304,7 +341,7 @@ function App() {
   )
 
   // full-screen player
-  if (playerItem) return <Player item={playerItem} onClose={() => setPlayerItem(null)} />
+  if (playerItem) return <Player item={playerItem} onClose={() => setPlayerItem(null)} onProgress={(position, duration) => syncProgress(playerItem, position, duration)} />
 
   // detail page
   if (detailItem) {
@@ -316,7 +353,9 @@ function App() {
         onToggleList={toggleList}
         onBack={() => setDetailItem(null)}
         onSelect={openDetail}
-        onNavigate={(p) => { setDetailItem(null); navigate(p as Page) }}
+          onNavigate={(p) => { setDetailItem(null); navigate(p as Page) }}
+          onRequireAccount={() => setAccountOpen(true)}
+          onProgress={(playingItem, position, duration) => syncProgress(playingItem, position, duration, detailItem.id)}
       />
     )
   }
@@ -386,6 +425,12 @@ function App() {
           </div>
           <button className="icon-btn menu-toggle" onClick={() => setMenuOpen(v => !v)} aria-label="Menu">
             {menuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+          <button className="account-button" onClick={() => {
+            if (account) { clearAccount(); setAccount(null); setMyList([]) }
+            else setAccountOpen(true)
+          }} title={account ? 'Sign out' : 'Sign in'}>
+            {account ? 'Sign out' : 'Sign in'}
           </button>
         </div>
       </header>
@@ -553,6 +598,12 @@ function App() {
             />
           </div>
         </div>
+      )}
+      {accountOpen && (
+        <AccountDialog
+          onClose={() => setAccountOpen(false)}
+          onSuccess={user => { setAccount(user); setAccountOpen(false) }}
+        />
       )}
     </div>
   )
