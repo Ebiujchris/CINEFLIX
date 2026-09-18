@@ -47,6 +47,10 @@ function fmt(s: number) {
     : `${m}:${String(sec).padStart(2,'0')}`
 }
 
+function latestFirst(items: Content[]) {
+  return [...items].sort((a, b) => (b.year || 0) - (a.year || 0))
+}
+
 // ── Continue Watching Card ────────────────────────────────────
 function CWCard({ item, onSelect, onRemove }: { item: Content; onSelect: (m: Content) => void; onRemove: (id: string) => void }) {
   const resume = getResume(item.id)
@@ -334,11 +338,11 @@ function App() {
 
   const removeFromHistory = (id: string) => { clearResume(id); forceUpdate(n => n + 1) }
 
-  const movies    = ALL_CONTENT.filter(c => c.type === 'movie' && (!activeGenre || c.genre.toLowerCase().includes(activeGenre.toLowerCase())))
-  const series    = ALL_CONTENT.filter(c => c.type === 'series' && (!activeGenre || c.genre.toLowerCase().includes(activeGenre.toLowerCase())))
+  const movies    = latestFirst(ALL_CONTENT.filter(c => c.type === 'movie' && (!activeGenre || c.genre.toLowerCase().includes(activeGenre.toLowerCase()))))
+  const series    = latestFirst(ALL_CONTENT.filter(c => c.type === 'series' && (!activeGenre || c.genre.toLowerCase().includes(activeGenre.toLowerCase()))))
   const watchlist = ALL_CONTENT.filter(c => myList.includes(c.id))
   const resumed   = ALL_CONTENT.filter(c => getResume(c.id) > 5)
-  const filteredAll = activeGenre ? ALL_CONTENT.filter(c => c.genre.toLowerCase().includes(activeGenre.toLowerCase())) : ALL_CONTENT
+  const filteredAll = latestFirst(activeGenre ? ALL_CONTENT.filter(c => c.genre.toLowerCase().includes(activeGenre.toLowerCase())) : ALL_CONTENT)
 
   const filteredMovies = useMemo(
     () => movies.filter(m => movieGenre  === 'All' || m.genre === movieGenre),  [movieGenre, movies])
@@ -347,11 +351,11 @@ function App() {
 
   const searchResults = useMemo(() =>
     searchVal.trim().length > 1
-      ? ALL_CONTENT.filter(c =>
+      ? latestFirst(ALL_CONTENT.filter(c =>
           c.title.toLowerCase().includes(searchVal.toLowerCase()) ||
           c.genre.toLowerCase().includes(searchVal.toLowerCase()) ||
           (c.cast ?? []).some(a => a.toLowerCase().includes(searchVal.toLowerCase()))
-        )
+        ))
       : [],
     [searchVal, ALL_CONTENT]
   )
@@ -473,7 +477,7 @@ function App() {
         )}
         {searchVal.length <= 1 && page === 'home' && !contentLoading && ALL_CONTENT.length > 0 && (
           <>
-            <HeroBanner items={ALL_CONTENT.slice(0, 8)} onPlay={openPlayer} onInfo={openDetail} onTrailer={setHeroTrailer} />
+            <HeroBanner items={latestFirst(ALL_CONTENT).slice(0, 8)} onPlay={openPlayer} onInfo={openDetail} onTrailer={setHeroTrailer} />
             <div className="rows-area">
 
               {/* Active genre banner */}
@@ -524,7 +528,7 @@ function App() {
                 </div>
               )}
 
-              {!activeGenre && <Row title="New Releases"       icon={<Star        size={16} />} items={ALL_CONTENT.filter(c => c.badge === 'NEW')}              onSelect={openDetail} />}
+              {!activeGenre && <Row title="New Releases"       icon={<Star        size={16} />} items={latestFirst(ALL_CONTENT.filter(c => c.badge === 'NEW'))}              onSelect={openDetail} />}
               {!activeGenre && <Row title="CINEFLIX Originals" icon={<Clapperboard size={16} />} items={ALL_CONTENT.filter(c => c.badge === 'CINEFLIX ORIGINAL')} onSelect={openDetail} />}
             </div>
           </>
