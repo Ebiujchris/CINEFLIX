@@ -154,7 +154,6 @@ export default function Player({ item, onClose }: Props) {
     return (
       <div className="player-wrap embed-wrap" ref={wrapRef}>
         <div className="embed-topbar">
-          <button className="player-close-btn" onClick={onClose} aria-label="Close player"><X size={18} /></button>
           <div><span className="player-kicker">NOW PLAYING</span><strong>{item.title}</strong></div>
           <span className="player-quality-chip">HD</span>
         </div>
