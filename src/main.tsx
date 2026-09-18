@@ -294,9 +294,11 @@ function App() {
   }
 
   const syncProgress = (item: Content, position: number, duration: number, contentId = item.id) => {
-    if (!account || position < 1) return
+    if (position < 1) return
     setResume(item.id, position)
     if (contentId !== item.id) setResume(contentId, position)
+    forceUpdate(n => n + 1)
+    if (!account) return
     const key = `${contentId}:${item.id}`
     const now = Date.now()
     if (now - (progressSync.current[key] || 0) < 10000) return
