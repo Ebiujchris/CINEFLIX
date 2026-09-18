@@ -62,6 +62,10 @@ export default function Player({ item, onClose, onProgress }: Props) {
 
   const isEmbed = item.provider === 'YOUTUBE' || item.provider === 'VIMEO' || item.provider === 'EXTERNAL_EMBED'
 
+  useEffect(() => {
+    if (isEmbed && item.embedUrl) onProgress?.(1, 0)
+  }, [item.id, item.embedUrl, isEmbed])
+
   // auto-hide controls
   const resetHide = () => {
     setShowCtrl(true)
@@ -164,7 +168,8 @@ export default function Player({ item, onClose, onProgress }: Props) {
           src={withAutoplay(embedUrl)}
           title={item.title}
           allow="autoplay; picture-in-picture"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-popups"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
+          referrerPolicy="no-referrer"
           allowFullScreen
           onLoad={() => setMediaReady(true)}
         />

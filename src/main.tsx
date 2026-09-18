@@ -27,6 +27,13 @@ function setHash(page: string, contentId?: string) {
 function getResume(id: string): number {
   try { return JSON.parse(localStorage.getItem('cf_resume') || '{}')[id] ?? 0 } catch { return 0 }
 }
+function setResume(id: string, position: number) {
+  try {
+    const resume = JSON.parse(localStorage.getItem('cf_resume') || '{}')
+    resume[id] = Math.floor(position)
+    localStorage.setItem('cf_resume', JSON.stringify(resume))
+  } catch { /* noop */ }
+}
 function clearResume(id: string) {
   try {
     const d = JSON.parse(localStorage.getItem('cf_resume') || '{}')
@@ -219,8 +226,8 @@ function App() {
       try {
         const resume: Record<string, number> = JSON.parse(localStorage.getItem('cf_resume') || '{}')
         library.progress.forEach(entry => {
-          const key = entry.episodeId || entry.contentId
-          if (!entry.completed && entry.position > (resume[key] || 0)) resume[key] = entry.position
+          if (!entry.completed && entry.position > (resume[entry.contentId] || 0)) resume[entry.contentId] = entry.position
+          if (!entry.completed && entry.episodeId) resume[entry.episodeId] = entry.position
         })
         localStorage.setItem('cf_resume', JSON.stringify(resume))
       } catch { /* local resume is optional */ }
@@ -288,6 +295,8 @@ function App() {
 
   const syncProgress = (item: Content, position: number, duration: number, contentId = item.id) => {
     if (!account || position < 1) return
+    setResume(item.id, position)
+    if (contentId !== item.id) setResume(contentId, position)
     const key = `${contentId}:${item.id}`
     const now = Date.now()
     if (now - (progressSync.current[key] || 0) < 10000) return
@@ -308,6 +317,11 @@ function App() {
   }
   const openPlayer = (item: Content) => {
     setPlayerItem(item)
+    if (item.provider === 'EXTERNAL_EMBED' && getResume(item.id) < 1) {
+      setResume(item.id, 1)
+      if (account) saveProgress(item.id, 1, 0).catch(() => undefined)
+      forceUpdate(n => n + 1)
+    }
     document.title = `▶ ${item.title} — Cineflix`
   }
 
