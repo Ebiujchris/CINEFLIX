@@ -11,7 +11,17 @@ import DetailPage from './DetailPage'
 import Player from './Player'
 import './styles.css'
 
-// ── Resume helpers ────────────────────────────────────────────
+// ── URL hash routing helpers ──────────────────────────────────
+function getHashState(): { page: string; contentId?: string } {
+  const hash = window.location.hash.replace('#', '')
+  if (!hash || hash === '/') return { page: 'home' }
+  const [page, contentId] = hash.replace('/', '').split('/')
+  return { page: page || 'home', contentId }
+}
+
+function setHash(page: string, contentId?: string) {
+  window.location.hash = contentId ? `/${page}/${contentId}` : `/${page}`
+}
 function getResume(id: string): number {
   try { return JSON.parse(localStorage.getItem('cf_resume') || '{}')[id] ?? 0 } catch { return 0 }
 }
@@ -184,7 +194,8 @@ type Page = 'home' | 'movies' | 'series' | 'watchlist'
 
 function App() {
   const { content: ALL_CONTENT, loading: contentLoading } = useContent()
-  const [page,        setPage]        = useState<Page>('home')
+  const hashState = getHashState()
+  const [page,        setPage]        = useState<Page>((hashState.page as Page) || 'home')
   const [detailItem,  setDetailItem]  = useState<Content | null>(null)
   const [playerItem,  setPlayerItem]  = useState<Content | null>(null)
   const [myList,      setMyList]      = useState<string[]>([])
@@ -195,6 +206,33 @@ function App() {
   const [genreOpen,   setGenreOpen]   = useState(false)
   const [activeGenre, setActiveGenre] = useState<string | null>(null)
   const genreRef = useRef<HTMLDivElement>(null)
+  const [heroTrailer, setHeroTrailer] = useState<Content | null>(null)
+
+  // restore detail item from URL on content load
+  useEffect(() => {
+    if (!ALL_CONTENT.length) return
+    const { page: hashPage, contentId } = getHashState()
+    if (contentId) {
+      const found = ALL_CONTENT.find(c => c.id === contentId || c.id === contentId)
+      if (found) setDetailItem(found)
+    }
+    if (hashPage && ['home','movies','series','watchlist'].includes(hashPage)) {
+      setPage(hashPage as Page)
+    }
+  }, [ALL_CONTENT])
+
+  // sync URL on hash change (browser back/forward)
+  useEffect(() => {
+    const handler = () => {
+      const { page: hashPage, contentId } = getHashState()
+      if (!contentId) { setDetailItem(null); setPlayerItem(null) }
+      if (hashPage && ['home','movies','series','watchlist'].includes(hashPage)) {
+        setPage(hashPage as Page)
+      }
+    }
+    window.addEventListener('hashchange', handler)
+    return () => window.removeEventListener('hashchange', handler)
+  }, [])
 
   // close genre dropdown on outside click
   useEffect(() => {
@@ -222,11 +260,13 @@ function App() {
 
   const navigate = (p: Page) => {
     setPage(p); setMenuOpen(false); setDetailItem(null); setSearchVal('')
+    setHash(p)
   }
 
   const openDetail = (item: Content) => {
     setDetailItem(item)
     setPlayerItem(null)
+    setHash('detail', item.id)
     document.title = `${item.title} — Cineflix`
   }
   const openPlayer = (item: Content) => {
@@ -238,8 +278,6 @@ function App() {
   useEffect(() => {
     if (!detailItem && !playerItem) document.title = 'Cineflix | World of Entertainment'
   }, [detailItem, playerItem])
-
-  const [heroTrailer, setHeroTrailer] = useState<Content | null>(null)
 
   const removeFromHistory = (id: string) => { clearResume(id); forceUpdate(n => n + 1) }
 
