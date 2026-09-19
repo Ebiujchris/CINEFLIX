@@ -51,6 +51,12 @@ function latestFirst(items: Content[]) {
   return [...items].sort((a, b) => (b.year || 0) - (a.year || 0))
 }
 
+const ASIAN_KEYWORDS = ['asian', 'korean', 'k-drama', 'kdrama', 'japanese', 'j-drama', 'jdrama', 'chinese', 'c-drama', 'cdrama', 'taiwanese', 'thai', 'philippine', 'bollywood', 'hong kong', 'mandarin', 'japan', 'korea', 'china']
+function isAsianDrama(item: Content) {
+  const text = [item.title, item.genre, ...(item.tags || []), item.description].join(' ').toLowerCase()
+  return ASIAN_KEYWORDS.some(keyword => text.includes(keyword))
+}
+
 // ── Continue Watching Card ────────────────────────────────────
 function CWCard({ item, onSelect, onRemove }: { item: Content; onSelect: (m: Content) => void; onRemove: (id: string) => void }) {
   const resume = getResume(item.id)
@@ -203,7 +209,7 @@ function HeroBanner({ items, onPlay, onInfo, onTrailer }: {
 }
 
 // ── App ───────────────────────────────────────────────────────
-type Page = 'home' | 'movies' | 'series' | 'watchlist'
+type Page = 'home' | 'movies' | 'series' | 'asian' | 'watchlist'
 
 function App() {
   const { content: ALL_CONTENT, loading: contentLoading } = useContent()
@@ -248,7 +254,7 @@ function App() {
       const found = ALL_CONTENT.find(c => c.id === contentId || c.id === contentId)
       if (found) setDetailItem(found)
     }
-    if (hashPage && ['home','movies','series','watchlist'].includes(hashPage)) {
+    if (hashPage && ['home','movies','series','asian','watchlist'].includes(hashPage)) {
       setPage(hashPage as Page)
     }
   }, [ALL_CONTENT])
@@ -258,7 +264,7 @@ function App() {
     const handler = () => {
       const { page: hashPage, contentId } = getHashState()
       if (!contentId) { setDetailItem(null); setPlayerItem(null) }
-      if (hashPage && ['home','movies','series','watchlist'].includes(hashPage)) {
+      if (hashPage && ['home','movies','series','asian','watchlist'].includes(hashPage)) {
         setPage(hashPage as Page)
       }
     }
@@ -340,6 +346,7 @@ function App() {
 
   const movies    = latestFirst(ALL_CONTENT.filter(c => c.type === 'movie' && (!activeGenre || c.genre.toLowerCase().includes(activeGenre.toLowerCase()))))
   const series    = latestFirst(ALL_CONTENT.filter(c => c.type === 'series' && (!activeGenre || c.genre.toLowerCase().includes(activeGenre.toLowerCase()))))
+  const asianContent = latestFirst(ALL_CONTENT.filter(isAsianDrama))
   const watchlist = ALL_CONTENT.filter(c => myList.includes(c.id))
   const resumed   = ALL_CONTENT.filter(c => getResume(c.id) > 5)
   const filteredAll = latestFirst(activeGenre ? ALL_CONTENT.filter(c => c.genre.toLowerCase().includes(activeGenre.toLowerCase())) : ALL_CONTENT)
@@ -391,11 +398,12 @@ function App() {
         </button>
 
         <nav className={`main-nav${menuOpen ? ' open' : ''}`}>
-          {(['home','movies','series','watchlist'] as Page[]).map(p => (
+          {(['home','movies','series','asian','watchlist'] as Page[]).map(p => (
             <button key={p} className={page === p ? 'active' : ''} onClick={() => navigate(p)}>
               {p === 'home'      && 'Home'}
               {p === 'movies'    && 'Movies'}
               {p === 'series'    && 'TV Series'}
+              {p === 'asian'     && 'Asian Drama'}
               {p === 'watchlist' && `Watchlist${myList.length ? ` (${myList.length})` : ''}`}
             </button>
           ))}
@@ -569,6 +577,21 @@ function App() {
             <div className="grid padded">
               {filteredSeries.map(s => <Card key={s.id} item={s} onSelect={openDetail} />)}
             </div>
+          </section>
+        )}
+
+        {searchVal.length <= 1 && page === 'asian' && (
+          <section className="browse-page">
+            <div className="page-hero asian-hero">
+              <div className="page-hero-text">
+                <p className="eyebrow"><Tv size={14} /> ASIAN DRAMA</p>
+                <h1>Stories from across Asia,<br />ready to discover.</h1>
+              </div>
+            </div>
+            {asianContent.length
+              ? <div className="grid padded">{asianContent.map(item => <Card key={item.id} item={item} onSelect={openDetail} />)}</div>
+              : <div className="empty-state"><Tv size={32} /><p>No Asian titles have been tagged yet.</p></div>
+            }
           </section>
         )}
 

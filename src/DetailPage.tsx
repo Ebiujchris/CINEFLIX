@@ -15,7 +15,7 @@ type Props = {
   onToggleList: (id: string) => void
   onBack: () => void
   onSelect: (item: Content) => void
-  onNavigate: (page: 'home' | 'movies' | 'series' | 'watchlist') => void
+  onNavigate: (page: 'home' | 'movies' | 'series' | 'asian' | 'watchlist') => void
   onRequireAccount: () => void
   onProgress: (item: Content, position: number, duration: number) => void
 }
@@ -70,6 +70,7 @@ export default function DetailPage({ item, allContent, myList, onToggleList, onB
           <button onClick={() => onNavigate('home')}>Home</button>
           <button onClick={() => onNavigate('movies')}>Movies</button>
           <button onClick={() => onNavigate('series')}>TV Series</button>
+          <button onClick={() => onNavigate('asian')}>Asian Drama</button>
           <button onClick={() => onNavigate('watchlist')}>Watchlist</button>
         </nav>
         <button className="detail-nav-close" onClick={onBack} aria-label="Close details">

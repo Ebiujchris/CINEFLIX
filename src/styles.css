@@ -325,6 +325,7 @@ main  { flex: 1; }
 .movies-hero    { background: linear-gradient(135deg, #1a0505 0%, #3d0a0a 60%, #1a0a0a 100%); }
 .series-hero    { background: linear-gradient(135deg, #050514 0%, #0a0a3d 60%, #0a0a1a 100%); }
 .watchlist-hero { background: linear-gradient(135deg, #050f05 0%, #0a2d0a 60%, #0a1a0a 100%); }
+.asian-hero { background: linear-gradient(135deg, #24100b 0%, #5a1d16 58%, #24100b 100%); }
 .page-hero-text { padding: 0 6vw 36px; }
 .page-hero-text h1 { font: 700 clamp(28px, 3.5vw, 48px)/1.1 'Space Grotesk'; letter-spacing: -1.5px; margin-top: 10px; }
 .eyebrow { display: inline-flex; align-items: center; gap: 7px; font: 700 10px 'Space Grotesk'; letter-spacing: 2px; color: var(--accent); }
