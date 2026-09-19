@@ -440,6 +440,9 @@ function App() {
               )}
             </div>
           )}
+          <button className="mobile-account-nav" onClick={() => { setAccountOpen(true); setMenuOpen(false) }}>
+            <UserRound size={15} /> {account ? 'Account' : 'Sign in'}
+          </button>
         </nav>
 
         <div className="nav-right">
@@ -630,7 +633,6 @@ function App() {
         <button className={page === 'movies' ? 'active' : ''} onClick={() => navigate('movies')}><Film size={18} /><span>Movies</span></button>
         <button className={page === 'series' ? 'active' : ''} onClick={() => navigate('series')}><Tv size={18} /><span>Series</span></button>
         <button className={page === 'watchlist' ? 'active' : ''} onClick={() => navigate('watchlist')}><Heart size={18} /><span>My List</span></button>
-        <button onClick={() => setAccountOpen(true)}><UserRound size={18} /><span>{account ? 'Account' : 'Sign in'}</span></button>
       </nav>
 
       {/* ── HERO TRAILER MODAL ── */}
