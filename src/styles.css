@@ -74,6 +74,8 @@ main  { flex: 1; }
 .nav-search input::placeholder { color: var(--muted); }
 .account-button { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; color: var(--text); font: 600 11px 'Space Grotesk', sans-serif; white-space: nowrap; transition: border-color .18s, color .18s; }
 .account-button:hover { border-color: var(--accent); color: #fff; }
+.install-button { padding: 8px 11px; border-radius: 6px; background: var(--accent); color: #fff; font: 700 11px 'Space Grotesk', sans-serif; white-space: nowrap; transition: background .18s, transform .18s; }
+.install-button:hover { background: #c0070f; transform: translateY(-1px); }
 
 .account-modal-backdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px; background: rgba(0,0,0,.78); backdrop-filter: blur(8px); }
 .account-modal { position: relative; width: min(430px, 100%); padding: 34px; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 25px 80px rgba(0,0,0,.55); }
@@ -767,6 +769,7 @@ footer p { margin: 0; }
   .time-inline { display: none; }
   .vol-slider { display: none; }
   .account-button { max-width: 62px; overflow: hidden; text-overflow: ellipsis; padding: 8px 8px; }
+  .install-button { padding: 8px; font-size: 10px; }
   .account-modal { padding: 28px 22px; }
 }
 

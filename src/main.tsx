@@ -210,6 +210,7 @@ function HeroBanner({ items, onPlay, onInfo, onTrailer }: {
 
 // ── App ───────────────────────────────────────────────────────
 type Page = 'home' | 'movies' | 'series' | 'asian' | 'watchlist'
+type BeforeInstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }> }
 
 function App() {
   const { content: ALL_CONTENT, loading: contentLoading } = useContent()
@@ -228,7 +229,30 @@ function App() {
   const [heroTrailer, setHeroTrailer] = useState<Content | null>(null)
   const [account, setAccount] = useState<AccountUser | null>(() => getAccount())
   const [accountOpen, setAccountOpen] = useState(false)
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const progressSync = useRef<Record<string, number>>({})
+
+  useEffect(() => {
+    const handleInstallPrompt = (event: Event) => {
+      event.preventDefault()
+      setInstallPrompt(event as BeforeInstallPromptEvent)
+    }
+    const handleInstalled = () => setInstallPrompt(null)
+    window.addEventListener('beforeinstallprompt', handleInstallPrompt)
+    window.addEventListener('appinstalled', handleInstalled)
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => undefined)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleInstallPrompt)
+      window.removeEventListener('appinstalled', handleInstalled)
+    }
+  }, [])
+
+  const installApp = async () => {
+    if (!installPrompt) return
+    await installPrompt.prompt()
+    await installPrompt.userChoice
+    setInstallPrompt(null)
+  }
 
   useEffect(() => {
     if (!account) return
@@ -446,6 +470,7 @@ function App() {
         </nav>
 
         <div className="nav-right">
+          {installPrompt && <button className="install-button" onClick={installApp}>Install app</button>}
           <div className="nav-search">
             <Search size={15} />
             <input
