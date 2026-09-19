@@ -57,6 +57,8 @@ export default function Player({ item, onClose, onProgress }: Props) {
   const [speed,      setSpeed]      = useState(1)
   const [caption,    setCaption]    = useState<string | null>(null)
   const [mediaReady, setMediaReady] = useState(false)
+  const [playbackError, setPlaybackError] = useState(false)
+  const [playerAttempt, setPlayerAttempt] = useState(0)
   const [resumeBanner, setResumeBanner] = useState(resumePos > 5)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
@@ -74,6 +76,12 @@ export default function Player({ item, onClose, onProgress }: Props) {
   }
   useEffect(() => { resetHide(); return () => clearTimeout(hideTimer.current) }, [playing])
   useEffect(() => { setMediaReady(false) }, [item.id])
+  useEffect(() => {
+    if (!isEmbed || !item.embedUrl) return
+    setPlaybackError(false)
+    const timer = window.setTimeout(() => setPlaybackError(true), 12000)
+    return () => window.clearTimeout(timer)
+  }, [item.id, item.embedUrl, playerAttempt, isEmbed])
 
   // sync video state
   useEffect(() => {
@@ -166,14 +174,22 @@ export default function Player({ item, onClose, onProgress }: Props) {
         <iframe
           className="player-iframe"
           src={withAutoplay(embedUrl)}
+          key={`${embedUrl}-${playerAttempt}`}
           title={item.title}
           allow="autoplay; picture-in-picture"
           sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
           referrerPolicy="no-referrer"
           allowFullScreen
-          onLoad={() => setMediaReady(true)}
+          onLoad={() => { setMediaReady(true); setPlaybackError(false) }}
         />
         {!mediaReady && <div className="player-loading" role="status" aria-label="Loading player"><span className="player-spinner" /></div>}
+        {playbackError && (
+          <div className="player-error" role="alert">
+            <strong>Playback is taking too long</strong>
+            <span>This source may be unavailable right now.</span>
+            <button onClick={() => { setMediaReady(false); setPlayerAttempt(value => value + 1) }}>Try again</button>
+          </div>
+        )}
       </div>
     )
   }
@@ -194,6 +210,7 @@ export default function Player({ item, onClose, onProgress }: Props) {
         playsInline
         muted={muted}
         onLoadedData={() => setMediaReady(true)}
+        onError={() => setPlaybackError(true)}
         onClick={togglePlay}
         onDoubleClick={toggleFS}
       >
@@ -210,6 +227,13 @@ export default function Player({ item, onClose, onProgress }: Props) {
       </video>
 
       {!mediaReady && <div className="player-loading" role="status" aria-label="Loading player"><span className="player-spinner" /></div>}
+      {playbackError && (
+        <div className="player-error" role="alert">
+          <strong>Playback unavailable</strong>
+          <span>Try again or choose another title.</span>
+          <button onClick={() => { setPlaybackError(false); setMediaReady(false); videoRef.current?.load(); videoRef.current?.play().catch(() => undefined) }}>Try again</button>
+        </div>
+      )}
 
       {/* resume banner */}
       {resumeBanner && (

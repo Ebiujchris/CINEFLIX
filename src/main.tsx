@@ -2,7 +2,7 @@ import { useMemo, useState, useRef, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import {
   ChevronLeft, ChevronRight, ChevronDown, Clapperboard,
-  Film, Heart, Info, Menu, Play, Search, Star,
+  Film, Heart, Info, Menu, Play, Search, Star, Home, UserRound,
   TrendingUp, Tv, X, Clock, RotateCcw, Grid,
 } from 'lucide-react'
 import { MOVIE_GENRES, SERIES_GENRES, type Content } from './data'
@@ -446,11 +446,8 @@ function App() {
           <button className="icon-btn menu-toggle" onClick={() => setMenuOpen(v => !v)} aria-label="Menu">
             {menuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
-          <button className="account-button" onClick={() => {
-            if (account) { clearAccount(); setAccount(null); setMyList([]) }
-            else setAccountOpen(true)
-          }} title={account ? 'Sign out' : 'Sign in'}>
-            {account ? 'Sign out' : 'Sign in'}
+          <button className="account-button" onClick={() => setAccountOpen(true)} title={account ? 'Open account' : 'Sign in'}>
+            {account ? account.name.split(' ')[0] : 'Sign in'}
           </button>
         </div>
       </header>
@@ -605,6 +602,14 @@ function App() {
         <span className="footer-copy">© 2026 Cineflix. All rights reserved.</span>
       </footer>
 
+      <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
+        <button className={page === 'home' ? 'active' : ''} onClick={() => navigate('home')}><Home size={18} /><span>Home</span></button>
+        <button className={page === 'movies' ? 'active' : ''} onClick={() => navigate('movies')}><Film size={18} /><span>Movies</span></button>
+        <button className={page === 'series' ? 'active' : ''} onClick={() => navigate('series')}><Tv size={18} /><span>Series</span></button>
+        <button className={page === 'watchlist' ? 'active' : ''} onClick={() => navigate('watchlist')}><Heart size={18} /><span>My List</span></button>
+        <button onClick={() => setAccountOpen(true)}><UserRound size={18} /><span>Account</span></button>
+      </nav>
+
       {/* ── HERO TRAILER MODAL ── */}
       {heroTrailer?.trailerUrl && (
         <div className="trailer-backdrop" onClick={() => setHeroTrailer(null)} role="presentation">
@@ -623,7 +628,10 @@ function App() {
       )}
       {accountOpen && (
         <AccountDialog
+          user={account}
           onClose={() => setAccountOpen(false)}
+          onSignOut={() => { clearAccount(); setAccount(null); setMyList([]) }}
+          onNavigate={page => navigate(page)}
           onSuccess={user => { setAccount(user); setAccountOpen(false) }}
         />
       )}

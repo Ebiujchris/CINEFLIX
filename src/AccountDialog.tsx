@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { AlertCircle, Eye, EyeOff, LogIn, UserPlus, X } from 'lucide-react'
+import { AlertCircle, Eye, EyeOff, LogIn, UserPlus, X, LogOut, Heart, Clock } from 'lucide-react'
 import { login, signup, type AccountUser } from './account'
 
-type Props = { onSuccess: (user: AccountUser) => void; onClose: () => void }
+type Props = { user?: AccountUser | null; onSuccess: (user: AccountUser) => void; onSignOut?: () => void; onNavigate?: (page: 'watchlist' | 'home') => void; onClose: () => void }
 
-export default function AccountDialog({ onSuccess, onClose }: Props) {
+export default function AccountDialog({ user, onSuccess, onSignOut, onNavigate, onClose }: Props) {
   const [mode, setMode] = useState<'login' | 'signup'>('login')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -12,6 +12,25 @@ export default function AccountDialog({ onSuccess, onClose }: Props) {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  if (user) {
+    return (
+      <div className="account-modal-backdrop" onClick={onClose} role="presentation">
+        <section className="account-modal account-profile-modal" onClick={event => event.stopPropagation()} aria-label="Your Cineflix account">
+          <button className="account-modal-close" onClick={onClose} aria-label="Close account dialog"><X size={18} /></button>
+          <div className="account-profile-avatar">{user.name.charAt(0).toUpperCase()}</div>
+          <p className="eyebrow">YOUR ACCOUNT</p>
+          <h2>{user.name}</h2>
+          <p className="account-modal-sub">{user.email}</p>
+          <div className="account-profile-links">
+            <button onClick={() => { onNavigate?.('watchlist'); onClose() }}><Heart size={16} /> My Watchlist</button>
+            <button onClick={() => { onNavigate?.('home'); onClose() }}><Clock size={16} /> Continue Watching</button>
+          </div>
+          <button className="account-signout" onClick={() => { onSignOut?.(); onClose() }}><LogOut size={16} /> Sign out</button>
+        </section>
+      </div>
+    )
+  }
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault(); setError(''); setLoading(true)
