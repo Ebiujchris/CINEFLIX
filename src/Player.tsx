@@ -76,12 +76,7 @@ export default function Player({ item, onClose, onProgress }: Props) {
   }
   useEffect(() => { resetHide(); return () => clearTimeout(hideTimer.current) }, [playing])
   useEffect(() => { setMediaReady(false) }, [item.id])
-  useEffect(() => {
-    if (!isEmbed || !item.embedUrl) return
-    setPlaybackError(false)
-    const timer = window.setTimeout(() => setPlaybackError(true), 12000)
-    return () => window.clearTimeout(timer)
-  }, [item.id, item.embedUrl, playerAttempt, isEmbed])
+  useEffect(() => { setPlaybackError(false) }, [item.id, item.embedUrl, playerAttempt])
 
   // sync video state
   useEffect(() => {
@@ -183,13 +178,6 @@ export default function Player({ item, onClose, onProgress }: Props) {
           onLoad={() => { setMediaReady(true); setPlaybackError(false) }}
         />
         {!mediaReady && <div className="player-loading" role="status" aria-label="Loading player"><span className="player-spinner" /></div>}
-        {playbackError && (
-          <div className="player-error" role="alert">
-            <strong>Playback is taking too long</strong>
-            <span>This source may be unavailable right now.</span>
-            <button onClick={() => { setMediaReady(false); setPlayerAttempt(value => value + 1) }}>Try again</button>
-          </div>
-        )}
       </div>
     )
   }
