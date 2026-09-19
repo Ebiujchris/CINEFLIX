@@ -185,7 +185,7 @@ function HeroBanner({ items, onPlay, onInfo, onTrailer }: {
         <div className="hero-actions">
           <button className="btn-primary" onClick={() => onPlay(item)}>
             <Play size={16} fill="currentColor" />
-            {getResume(item.id) > 5 ? 'Resume' : 'Play'}
+            {getResume(item.id) > 0 ? 'Resume' : 'Play'}
           </button>
           {item.trailerUrl && (
             <button className="btn-trailer-hero" onClick={() => onTrailer(item)}>
@@ -348,7 +348,7 @@ function App() {
   const series    = latestFirst(ALL_CONTENT.filter(c => c.type === 'series' && (!activeGenre || c.genre.toLowerCase().includes(activeGenre.toLowerCase()))))
   const asianContent = latestFirst(ALL_CONTENT.filter(isAsianDrama))
   const watchlist = ALL_CONTENT.filter(c => myList.includes(c.id))
-  const resumed   = ALL_CONTENT.filter(c => getResume(c.id) > 5)
+  const resumed   = ALL_CONTENT.filter(c => getResume(c.id) > 0)
   const filteredAll = latestFirst(activeGenre ? ALL_CONTENT.filter(c => c.genre.toLowerCase().includes(activeGenre.toLowerCase())) : ALL_CONTENT)
 
   const filteredMovies = useMemo(
