@@ -47,7 +47,7 @@ main  { flex: 1; }
   display: grid; place-items: center;
   font-size: 15px; font-weight: 700; color: #fff;
 }
-.main-nav { display: flex; align-items: center; gap: 2px; }
+.main-nav { display: flex; align-items: center; gap: 2px; min-width: 0; flex-shrink: 1; }
 .main-nav button {
   padding: 7px 14px; border-radius: 8px;
   font-size: 13px; font-weight: 500; color: var(--muted);
@@ -56,7 +56,7 @@ main  { flex: 1; }
 .main-nav button:hover { color: var(--text); background: rgba(255,255,255,.06); }
 .main-nav button.active { color: var(--text); font-weight: 600; background: rgba(255,255,255,.1); }
 .mobile-account-nav { display: none; }
-.nav-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.nav-right { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .icon-btn {
   display: grid; place-items: center; width: 36px; height: 36px;
   border-radius: 50%; color: var(--muted);
@@ -69,16 +69,17 @@ main  { flex: 1; }
   display: grid; place-items: center;
 }
 .menu-toggle { display: none; }
-.nav-search { width: 250px; height: 36px; display: flex; align-items: center; gap: 10px; padding: 0 12px; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); background: var(--bg3); }
+.nav-search { width: clamp(150px, 18vw, 250px); height: 36px; display: flex; align-items: center; gap: 10px; padding: 0 12px; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); background: var(--bg3); flex-shrink: 1; }
 .nav-search input { width: 100%; border: 0; outline: 0; background: transparent; color: var(--text); font-size: 13px; }
 .nav-search input::placeholder { color: var(--muted); }
 .account-button { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; color: var(--text); font: 600 11px 'Space Grotesk', sans-serif; white-space: nowrap; transition: border-color .18s, color .18s; }
+.nav-right .account-button { flex-shrink: 0; min-width: 58px; }
 .account-button:hover { border-color: var(--accent); color: #fff; }
 .install-button { padding: 8px 11px; border-radius: 6px; background: var(--accent); color: #fff; font: 700 11px 'Space Grotesk', sans-serif; white-space: nowrap; transition: background .18s, transform .18s; }
 .install-button:hover { background: #c0070f; transform: translateY(-1px); }
 
-.account-modal-backdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px; background: rgba(0,0,0,.78); backdrop-filter: blur(8px); }
-.account-modal { position: relative; width: min(430px, 100%); padding: 34px; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 25px 80px rgba(0,0,0,.55); }
+.account-modal-backdrop { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; overflow-y: auto; padding: 32px; background: rgba(0,0,0,.82); backdrop-filter: blur(8px); }
+.account-modal { position: relative; width: min(430px, 100%); max-height: calc(100vh - 64px); overflow-y: auto; padding: 34px; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 25px 80px rgba(0,0,0,.55); }
 .account-modal-close { position: absolute; top: 14px; right: 14px; color: var(--muted); padding: 5px; }
 .account-modal h2 { margin: 8px 0 6px; font: 700 28px 'Space Grotesk', sans-serif; }
 .account-modal-sub { color: var(--muted); font-size: 13px; line-height: 1.5; margin-bottom: 22px; }
@@ -718,6 +719,11 @@ footer p { margin: 0; }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 
 /* ── Responsive ──────────────────────────────────────────────── */
+@media (max-width: 1350px) and (min-width: 901px) {
+  .navbar { gap: 16px; padding-left: 3vw; padding-right: 3vw; }
+  .main-nav button { padding-left: 8px; padding-right: 8px; }
+  .nav-search { width: 175px; }
+}
 @media (max-width: 900px) {
   .main-nav { display: none; }
   .main-nav.open {
