@@ -48,7 +48,7 @@ export default function DetailPage({ item, allContent, myList, onToggleList, onB
             <div className="grid watch-related-grid">
               {similar.map(s => (
                 <button key={s.id} className="card" onClick={() => { setShowPlayer(false); onSelect(s) }} aria-label={`Open ${s.title}`}>
-                  <div className="card-poster"><img src={s.image} alt="" loading="lazy" /></div>
+                  <div className="card-poster"><img src={s.image} alt="" loading="lazy" decoding="async" /></div>
                   <div className="card-info"><strong>{s.title}</strong><span>{s.year} · {s.duration}</span></div>
                 </button>
               ))}
@@ -190,6 +190,7 @@ export default function DetailPage({ item, allContent, myList, onToggleList, onB
                           src={episode.thumbnailUrl || item.backdrop || item.image}
                           alt=""
                           loading="lazy"
+                          decoding="async"
                         />
                         <div className="ep-thumb-overlay">
                           <span className="ep-play-circle"><Play size={16} fill="currentColor" /></span>
@@ -248,7 +249,7 @@ export default function DetailPage({ item, allContent, myList, onToggleList, onB
             {similar.map(s => (
               <button key={s.id} className="similar-card" onClick={() => onSelect(s)} aria-label={`Open ${s.title}`}>
                 <div className="similar-poster">
-                  <img src={s.image} alt="" loading="lazy" />
+                  <img src={s.image} alt="" loading="lazy" decoding="async" />
                   <div className="similar-hover">
                     <Play size={20} fill="currentColor" />
                   </div>

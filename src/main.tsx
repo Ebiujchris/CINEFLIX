@@ -64,7 +64,7 @@ function CWCard({ item, onSelect, onRemove }: { item: Content; onSelect: (m: Con
   return (
     <div className="cw-card">
       <button className="cw-poster" onClick={() => onSelect(item)} aria-label={`Resume ${item.title}`}>
-        <img src={item.backdrop || item.image} alt="" loading="lazy" />
+        <img src={item.backdrop || item.image} alt="" loading="lazy" decoding="async" />
         <div className="cw-overlay">
           <div className="cw-play"><Play size={22} fill="currentColor" /></div>
           <span className="cw-time"><Clock size={10} /> {fmt(resume)}</span>
@@ -88,7 +88,7 @@ function Card({ item, onSelect }: { item: Content; onSelect: (m: Content) => voi
   return (
     <button className="card" onClick={() => onSelect(item)} aria-label={`Open ${item.title}`}>
       <div className="card-poster">
-        <img src={item.image} alt="" loading="lazy" />
+        <img src={item.image} alt="" loading="lazy" decoding="async" />
         {item.badge && <span className="card-badge">{item.badge}</span>}
         {item.type === 'series' && <span className="card-type-tag"><Tv size={9} /> SERIES</span>}
         <div className="card-hover-overlay">

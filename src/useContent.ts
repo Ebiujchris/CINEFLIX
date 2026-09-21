@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import type { Content, Season } from './data'
 
 const BASE = (import.meta.env.VITE_API_URL || 'http://localhost:4000').replace(/\/+$/, '')
+const CONTENT_CACHE_KEY = 'cf_content_cache'
+const CONTENT_CACHE_TTL = 5 * 60 * 1000
 
 function mapApiItem(item: Record<string, unknown>): Content {
   const primary = (item.videos as Record<string, unknown>[] | undefined)?.find(
@@ -57,18 +59,21 @@ function mapApiItem(item: Record<string, unknown>): Content {
 }
 
 export function useContent() {
-  const [content,  setContent]  = useState<Content[]>([])
-  const [loading,  setLoading]  = useState(true)
+  const cached = readContentCache()
+  const [content,  setContent]  = useState<Content[]>(cached?.items || [])
+  const [loading,  setLoading]  = useState(!cached)
   const [error,    setError]    = useState<string | null>(null)
 
-  const load = async () => {
-    setLoading(true)
+  const load = async (showLoading = !cached) => {
+    if (showLoading) setLoading(true)
     setError(null)
     try {
       const res  = await fetch(`${BASE}/api/content?limit=100`)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to load content')
-      setContent((data.items as Record<string, unknown>[]).map(mapApiItem))
+      const mapped = (data.items as Record<string, unknown>[]).map(mapApiItem)
+      setContent(mapped)
+      try { sessionStorage.setItem(CONTENT_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), items: mapped })) } catch { /* cache is optional */ }
     } catch (e: unknown) {
       setError((e as Error).message)
     } finally {
@@ -76,7 +81,20 @@ export function useContent() {
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load(!cached)
+    const refresh = () => load(false)
+    window.addEventListener('online', refresh)
+    return () => window.removeEventListener('online', refresh)
+  }, [])
 
   return { content, loading, error, reload: load }
+}
+
+function readContentCache(): { savedAt: number; items: Content[] } | null {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(CONTENT_CACHE_KEY) || 'null')
+    if (!value || Date.now() - value.savedAt > CONTENT_CACHE_TTL || !Array.isArray(value.items)) return null
+    return value
+  } catch { return null }
 }
