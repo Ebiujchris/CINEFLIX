@@ -2,6 +2,7 @@ export type Provider = 'YOUTUBE' | 'VIMEO' | 'DIRECT_MP4' | 'DIRECT_HLS' | 'EXTE
 export type ContentType = 'movie' | 'series'
 
 export type Caption = { label: string; srclang: string; src: string }
+export type VideoSource = { provider: Provider; embedUrl?: string; playbackUrl?: string }
 
 export type Episode = {
   id: string
@@ -43,6 +44,7 @@ export type Content = {
   provider: Provider
   playbackUrl?: string
   embedUrl?: string
+  sources?: VideoSource[]
   trailerUrl?: string
   seasons?: number
   seasonsData?: Season[]

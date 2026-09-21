@@ -59,14 +59,17 @@ export default function Player({ item, onClose, onProgress }: Props) {
   const [mediaReady, setMediaReady] = useState(false)
   const [playbackError, setPlaybackError] = useState(false)
   const [playerAttempt, setPlayerAttempt] = useState(0)
+  const [sourceIndex, setSourceIndex] = useState(0)
   const [resumeBanner, setResumeBanner] = useState(resumePos > 5)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
-  const isEmbed = item.provider === 'YOUTUBE' || item.provider === 'VIMEO' || item.provider === 'EXTERNAL_EMBED'
+  const sources = item.sources?.length ? item.sources : [{ provider: item.provider, embedUrl: item.embedUrl, playbackUrl: item.playbackUrl }]
+  const source = sources[Math.min(sourceIndex, sources.length - 1)]
+  const isEmbed = source.provider === 'YOUTUBE' || source.provider === 'VIMEO' || source.provider === 'EXTERNAL_EMBED'
 
   useEffect(() => {
-    if (isEmbed && item.embedUrl) onProgress?.(1, 0)
-  }, [item.id, item.embedUrl, isEmbed])
+    if (isEmbed && source.embedUrl) onProgress?.(1, 0)
+  }, [item.id, source.embedUrl, isEmbed])
 
   // auto-hide controls
   const resetHide = () => {
@@ -75,8 +78,8 @@ export default function Player({ item, onClose, onProgress }: Props) {
     hideTimer.current = setTimeout(() => { if (playing) setShowCtrl(false) }, 3000)
   }
   useEffect(() => { resetHide(); return () => clearTimeout(hideTimer.current) }, [playing])
-  useEffect(() => { setMediaReady(false) }, [item.id])
-  useEffect(() => { setPlaybackError(false) }, [item.id, item.embedUrl, playerAttempt])
+  useEffect(() => { setMediaReady(false); setPlaybackError(false); setSourceIndex(0) }, [item.id])
+  useEffect(() => { setMediaReady(false); setPlaybackError(false) }, [sourceIndex, playerAttempt])
 
   // sync video state
   useEffect(() => {
@@ -152,18 +155,24 @@ export default function Player({ item, onClose, onProgress }: Props) {
 
   const handleResume = () => { seek(resumePos); setResumeBanner(false) }
   const handleRestart = () => { seek(0); clearResume(item.id); setResumeBanner(false) }
+  const tryNextSource = () => {
+    if (sourceIndex >= sources.length - 1) return
+    setPlaybackError(false)
+    setSourceIndex(index => index + 1)
+  }
 
   const progress = duration > 0 ? (current / duration) * 100 : 0
   const bufPct   = duration > 0 ? (buffered / duration) * 100 : 0
 
   // EMBED (YouTube/Vimeo) — no custom controls possible
-  if (isEmbed && item.embedUrl) {
-    const embedUrl = item.provider === 'YOUTUBE' ? (toYouTubeEmbedUrl(item.embedUrl) || item.embedUrl) : item.embedUrl
+  if (isEmbed && source.embedUrl) {
+    const embedUrl = source.provider === 'YOUTUBE' ? (toYouTubeEmbedUrl(source.embedUrl) || source.embedUrl) : source.embedUrl
     return (
       <div className="player-wrap embed-wrap" ref={wrapRef}>
         <div className="embed-topbar">
           <button className="player-close-btn" onClick={onClose} aria-label="Close player"><X size={18} /></button>
           <div><span className="player-kicker">NOW PLAYING</span><strong>{item.title}</strong></div>
+          {sources.length > 1 && <button className="player-source-btn" onClick={tryNextSource}>Try another source</button>}
           <span className="player-quality-chip">HD</span>
         </div>
         <iframe
@@ -193,7 +202,7 @@ export default function Player({ item, onClose, onProgress }: Props) {
       <video
         ref={videoRef}
         className="player-video"
-        src={item.playbackUrl}
+        src={source.playbackUrl}
         autoPlay
         playsInline
         muted={muted}
@@ -219,7 +228,7 @@ export default function Player({ item, onClose, onProgress }: Props) {
         <div className="player-error" role="alert">
           <strong>Playback unavailable</strong>
           <span>Try again or choose another title.</span>
-          <button onClick={() => { setPlaybackError(false); setMediaReady(false); videoRef.current?.load(); videoRef.current?.play().catch(() => undefined) }}>Try again</button>
+          <button onClick={() => { if (sourceIndex < sources.length - 1) tryNextSource(); else { setPlaybackError(false); setMediaReady(false); videoRef.current?.load(); videoRef.current?.play().catch(() => undefined) } }}>{sourceIndex < sources.length - 1 ? 'Try another source' : 'Try again'}</button>
         </div>
       )}
 

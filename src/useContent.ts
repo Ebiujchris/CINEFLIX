@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react'
-import type { Content, Season } from './data'
+import type { Content, Season, VideoSource } from './data'
 
 const BASE = (import.meta.env.VITE_API_URL || 'http://localhost:4000').replace(/\/+$/, '')
 const CONTENT_CACHE_KEY = 'cf_content_cache'
 const CONTENT_CACHE_TTL = 5 * 60 * 1000
 
 function mapApiItem(item: Record<string, unknown>): Content {
-  const primary = (item.videos as Record<string, unknown>[] | undefined)?.find(
+  const videos = (item.videos as Record<string, unknown>[] | undefined) || []
+  const sources: VideoSource[] = videos.map(video => ({
+    provider: video.provider as Content['provider'],
+    embedUrl: video.embedUrl as string | undefined,
+    playbackUrl: video.playbackUrl as string | undefined,
+  }))
+  const primary = videos.find(
     (v: Record<string, unknown>) => v.isPrimary
   ) || (item.videos as Record<string, unknown>[] | undefined)?.[0]
 
@@ -32,6 +38,7 @@ function mapApiItem(item: Record<string, unknown>): Content {
     provider:        primary ? (primary.provider as string) as Content['provider'] : 'YOUTUBE',
     embedUrl:        (primary?.embedUrl as string) || undefined,
     playbackUrl:     (primary?.playbackUrl as string) || undefined,
+    sources,
     captions:        [],
     seasonsData:     ((item.seasonsData as Record<string, unknown>[] | undefined) || []).map(season => ({
       id: season.id as string,
@@ -52,6 +59,7 @@ function mapApiItem(item: Record<string, unknown>): Content {
           provider:      (video?.provider as Content['provider']) || 'YOUTUBE',
           embedUrl:      video?.embedUrl as string | undefined,
           playbackUrl:   video?.playbackUrl as string | undefined,
+          sources:       vids.map(source => ({ provider: source.provider as Content['provider'], embedUrl: source.embedUrl as string | undefined, playbackUrl: source.playbackUrl as string | undefined })),
         }
       }),
     })) as Season[],
