@@ -51,6 +51,18 @@ function latestFirst(items: Content[]) {
   return [...items].sort((a, b) => (b.year || 0) - (a.year || 0))
 }
 
+function sortContent(items: Content[], mode: SortMode) {
+  return [...items].sort((a, b) => mode === 'rating'
+    ? Number(b.imdb || 0) - Number(a.imdb || 0)
+    : mode === 'title'
+      ? a.title.localeCompare(b.title)
+      : (b.year || 0) - (a.year || 0))
+}
+
+function sortLabel(mode: SortMode) {
+  return mode === 'rating' ? 'Top rated' : mode === 'title' ? 'A-Z' : 'Latest'
+}
+
 const ASIAN_KEYWORDS = ['asian', 'korean', 'k-drama', 'kdrama', 'japanese', 'j-drama', 'jdrama', 'chinese', 'c-drama', 'cdrama', 'taiwanese', 'thai', 'philippine', 'bollywood', 'hong kong', 'mandarin', 'japan', 'korea', 'china']
 function isAsianDrama(item: Content) {
   const text = [item.title, item.genre, ...(item.tags || []), item.description].join(' ').toLowerCase()
@@ -210,6 +222,7 @@ function HeroBanner({ items, onPlay, onInfo, onTrailer }: {
 
 // ── App ───────────────────────────────────────────────────────
 type Page = 'home' | 'movies' | 'series' | 'asian' | 'watchlist'
+type SortMode = 'latest' | 'rating' | 'title'
 type BeforeInstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }> }
 
 function App() {
@@ -223,6 +236,7 @@ function App() {
   const [searchVal,   setSearchVal]   = useState('')
   const [movieGenre,  setMovieGenre]  = useState('All')
   const [seriesGenre, setSeriesGenre] = useState('All')
+  const [sortMode, setSortMode] = useState<SortMode>('latest')
   const [genreOpen,   setGenreOpen]   = useState(false)
   const [activeGenre, setActiveGenre] = useState<string | null>(null)
   const genreRef = useRef<HTMLDivElement>(null)
@@ -376,9 +390,9 @@ function App() {
   const filteredAll = latestFirst(activeGenre ? ALL_CONTENT.filter(c => c.genre.toLowerCase().includes(activeGenre.toLowerCase())) : ALL_CONTENT)
 
   const filteredMovies = useMemo(
-    () => movies.filter(m => movieGenre  === 'All' || m.genre === movieGenre),  [movieGenre, movies])
+    () => sortContent(movies.filter(m => movieGenre === 'All' || m.genre === movieGenre), sortMode), [movieGenre, movies, sortMode])
   const filteredSeries = useMemo(
-    () => series.filter(s => seriesGenre === 'All' || s.genre === seriesGenre), [seriesGenre, series])
+    () => sortContent(series.filter(s => seriesGenre === 'All' || s.genre === seriesGenre), sortMode), [seriesGenre, series, sortMode])
 
   const searchResults = useMemo(() =>
     searchVal.trim().length > 1
@@ -581,6 +595,10 @@ function App() {
                 <button key={g} className={movieGenre === g ? 'active' : ''} onClick={() => setMovieGenre(g)}>{g}</button>
               ))}
             </div>
+            <div className="browse-sort" aria-label="Sort movies">
+              <span>Sort</span>
+              {(['latest', 'rating', 'title'] as SortMode[]).map(mode => <button key={mode} className={sortMode === mode ? 'active' : ''} onClick={() => setSortMode(mode)}>{sortLabel(mode)}</button>)}
+            </div>
             {filteredMovies.length
               ? <div className="grid padded">{filteredMovies.map(m => <Card key={m.id} item={m} onSelect={openDetail} />)}</div>
               : <div className="empty-state"><Film size={32} /><p>No movies in this genre.</p></div>
@@ -601,6 +619,10 @@ function App() {
               {SERIES_GENRES.map(g => (
                 <button key={g} className={seriesGenre === g ? 'active' : ''} onClick={() => setSeriesGenre(g)}>{g}</button>
               ))}
+            </div>
+            <div className="browse-sort" aria-label="Sort TV series">
+              <span>Sort</span>
+              {(['latest', 'rating', 'title'] as SortMode[]).map(mode => <button key={mode} className={sortMode === mode ? 'active' : ''} onClick={() => setSortMode(mode)}>{sortLabel(mode)}</button>)}
             </div>
             <div className="grid padded">
               {filteredSeries.map(s => <Card key={s.id} item={s} onSelect={openDetail} />)}

@@ -341,6 +341,10 @@ main  { flex: 1; }
 }
 .genre-bar button:hover { color: var(--text); border-color: #555; }
 .genre-bar button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.browse-sort { display: flex; align-items: center; gap: 6px; padding: 18px 6vw 0; color: var(--muted); font-size: 12px; }
+.browse-sort button { padding: 6px 10px; border: 1px solid var(--border); border-radius: 5px; color: var(--muted); font-size: 11px; }
+.browse-sort button:hover { color: #fff; border-color: #555; }
+.browse-sort button.active { color: #fff; border-color: var(--accent); background: rgba(229,9,20,.15); }
 
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 18px 12px; }
 .grid.padded { padding: 28px 6vw 70px; }
