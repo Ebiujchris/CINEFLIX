@@ -197,10 +197,9 @@ main  { flex: 1; }
   position: absolute; top: 7px; right: 7px; z-index: 4;
   width: 26px; height: 26px; border-radius: 50%;
   background: rgba(0,0,0,.75); color: #bbb;
-  display: none; place-items: center;
+  display: grid; place-items: center;
   transition: background .18s, color .18s;
 }
-.cw-card:hover .cw-remove { display: grid; }
 .cw-remove:hover { background: var(--accent); color: #fff; }
 
 /* ── Shared buttons ──────────────────────────────────────────── */
