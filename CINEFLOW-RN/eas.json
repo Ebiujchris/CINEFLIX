@@ -1,0 +1,39 @@
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://cineflix-be.vercel.app"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://cineflix-be.vercel.app"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "./fastlane/pc-api-6980916862127505869-0-6b8e59fcfe52.json",
+        "track": "internal"
+      }
+    }
+  },
+  "updates": {
+    "enabled": true,
+    "codeSigningCertificate": "./certificates/code-signing-certificate.pem",
+    "codeSigningMetadata": "./certificates/code-signing-metadata.json",
+    "url": "https://u.expo.dev/f62a41cd-25c1-4886-91fa-1cbee691dbaa"
+  }
+}
