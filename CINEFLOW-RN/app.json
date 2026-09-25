@@ -2,9 +2,10 @@
   "expo": {
     "owner": "ebiujchris",
     "name": "Cineflix",
-    "slug": "cineflix",
+    "slug": "cineflix-app",
     "scheme": "cineflix",
     "version": "1.0.0",
+    "runtimeVersion": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/cineflix-icon.png",
     "userInterfaceStyle": "dark",
