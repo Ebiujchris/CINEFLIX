@@ -16,6 +16,8 @@
     },
     "android": {
       "package": "com.cineflix.app",
+      "minSdkVersion": 26,
+      "targetSdkVersion": 34,
       "adaptiveIcon": {
         "foregroundImage": "./assets/cineflix-icon.png",
         "backgroundColor": "#e50914"
