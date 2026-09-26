@@ -12,12 +12,19 @@ import {
   Text,
   TextInput,
   View,
+  Dimensions,
 } from 'react-native';
 import * as Updates from 'expo-updates';
 import * as SecureStore from 'expo-secure-store';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { WebView } from 'react-native-webview';
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const SPACING = 16;
+const CARD_WIDTH = 110;
+const CARD_HEIGHT = 165;
+
+// ─ Type Definitions ─
 type MediaType = 'movie' | 'series';
 
 type MediaItem = {
@@ -43,9 +50,20 @@ type MediaItem = {
 
 type AccountUser = { id: string; email: string; name: string };
 type VideoSource = { provider: string; embedUrl?: string; playbackUrl?: string; isPrimary?: boolean };
-type Episode = { id: string; episodeNumber: number; title: string; description: string; duration?: string; thumbnailUrl?: string; provider: string; embedUrl?: string; playbackUrl?: string };
+type Episode = {
+  id: string;
+  episodeNumber: number;
+  title: string;
+  description: string;
+  duration?: string;
+  thumbnailUrl?: string;
+  provider: string;
+  embedUrl?: string;
+  playbackUrl?: string;
+};
 type Season = { id: string; seasonNumber: number; title?: string; episodes: Episode[] };
 
+// ─ Utilities ─
 function youtubeEmbedUrl(value: string): string {
   try {
     const url = new URL(value);
@@ -61,6 +79,7 @@ function youtubeEmbedUrl(value: string): string {
   }
 }
 
+// ─ Playback Modal Component ─
 function PlaybackModal({ item, onClose }: { item: MediaItem; onClose: () => void }) {
   const sources = item.sources.length ? item.sources : [{ provider: 'EXTERNAL_EMBED', embedUrl: undefined, playbackUrl: undefined }];
   const [sourceIndex, setSourceIndex] = useState(0);
@@ -85,6 +104,7 @@ function PlaybackModal({ item, onClose }: { item: MediaItem; onClose: () => void
             </Pressable>
           ) : <View style={styles.playerHeaderSpacer} />}
         </View>
+
         <View style={styles.playerStage}>
           {isEmbed && source.embedUrl ? (
             <WebView
@@ -116,23 +136,104 @@ function PlaybackModal({ item, onClose }: { item: MediaItem; onClose: () => void
               <Text style={styles.playerMessageText}>This title does not have a playable source configured.</Text>
             </View>
           )}
-          {webError ? (
+
+          {webError && (
             <View style={styles.playerErrorOverlay}>
               <Text style={styles.playerMessageTitle}>Player could not load</Text>
               <Text style={styles.playerMessageText}>Try another source or check your connection.</Text>
-              {sources.length > 1 ? <Pressable style={styles.primaryButton} onPress={() => { setWebError(false); setSourceIndex((index) => (index + 1) % sources.length); }}><Text style={styles.buttonText}>Try another source</Text></Pressable> : null}
+              {sources.length > 1 && (
+                <Pressable style={styles.primaryButton} onPress={() => { setWebError(false); setSourceIndex((index) => (index + 1) % sources.length); }}>
+                  <Text style={styles.primaryButtonText}>Try another source</Text>
+                </Pressable>
+              )}
             </View>
-          ) : null}
+          )}
         </View>
+
         <View style={styles.playerFooter}>
           <Text style={styles.playerFooterTitle}>{item.title}</Text>
-          <Text style={styles.playerFooterDescription}>{item.description}</Text>
+          <Text style={styles.playerFooterDescription} numberOfLines={2}>{item.description}</Text>
         </View>
       </SafeAreaView>
     </Modal>
   );
 }
 
+// ─ Continue Watching Card ─
+function ContinueWatchingCard({ item, onPress }: { item: MediaItem; onPress: () => void }) {
+  return (
+    <Pressable style={styles.cwCard} onPress={onPress}>
+      <Image source={{ uri: item.backdrop || item.image }} style={styles.cwPoster} />
+      <View style={styles.cwOverlay}>
+        <View style={styles.cwPlayIcon}>
+          <Text style={styles.playSymbol}>▶</Text>
+        </View>
+      </View>
+      <View style={styles.cwProgress}>
+        <View style={[styles.cwProgressFill, { width: '35%' }]} />
+      </View>
+      <View style={styles.cwInfo}>
+        <Text style={styles.cwTitle} numberOfLines={1}>{item.title}</Text>
+        <Text style={styles.cwMeta} numberOfLines={1}>{item.genre}</Text>
+      </View>
+    </Pressable>
+  );
+}
+
+// ─ Portrait Card ─
+function MediaCard({ item, onPress }: { item: MediaItem; onPress: () => void }) {
+  return (
+    <Pressable style={styles.card} onPress={onPress}>
+      <Image source={{ uri: item.image }} style={styles.cardImage} />
+      <View style={styles.cardOverlay}>
+        <View style={styles.cardPlayButton}>
+          <Text style={styles.playSymbol}>▶</Text>
+        </View>
+      </View>
+      {item.imdb && (
+        <View style={styles.ratingBadge}>
+          <Text style={styles.ratingText}>★ {item.imdb}</Text>
+        </View>
+      )}
+    </Pressable>
+  );
+}
+
+// ─ Hero Section ─
+function HeroSection({ item, onPlay, onMoreInfo }: { item: MediaItem; onPlay: () => void; onMoreInfo: () => void }) {
+  return (
+    <View style={styles.hero}>
+      <Image source={{ uri: item.backdrop }} style={styles.heroImage} />
+      <View style={styles.heroGradient} />
+      <View style={styles.heroContent}>
+        {item.badge && <Text style={styles.heroBadge}>{item.badge}</Text>}
+        <Text style={styles.heroTitle}>{item.title}</Text>
+        <View style={styles.heroStats}>
+          <Text style={styles.heroStat}>{item.year}</Text>
+          <Text style={styles.heroStatDot}>•</Text>
+          <Text style={styles.heroStat}>{item.rating}</Text>
+          {item.imdb && (
+            <>
+              <Text style={styles.heroStatDot}>•</Text>
+              <Text style={styles.heroStat}>★ {item.imdb}</Text>
+            </>
+          )}
+        </View>
+        <Text style={styles.heroDescription} numberOfLines={3}>{item.description}</Text>
+        <View style={styles.heroActions}>
+          <Pressable style={styles.primaryButton} onPress={onPlay}>
+            <Text style={styles.primaryButtonText}>▶ Play</Text>
+          </Pressable>
+          <Pressable style={styles.secondaryButton} onPress={onMoreInfo}>
+            <Text style={styles.secondaryButtonText}>ℹ Info</Text>
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// ─ API & Mapping ─
 const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL || 'https://cineflix-be.vercel.app').replace(/\/+$/, '');
 
 function mapApiItem(value: unknown): MediaItem | null {
@@ -144,6 +245,7 @@ function mapApiItem(value: unknown): MediaItem | null {
   const backdrop = typeof item.backdropUrl === 'string' ? item.backdropUrl : poster;
   const videos = Array.isArray(item.videos) ? item.videos as Record<string, unknown>[] : [];
   const seasonsData = Array.isArray(item.seasonsData) ? item.seasonsData as Record<string, unknown>[] : [];
+
   return {
     id: item.id,
     title: item.title,
@@ -192,8 +294,9 @@ function mapApiItem(value: unknown): MediaItem | null {
   };
 }
 
-const tabs = ['Home', 'Movies', 'Series', 'My List'];
+const TABS = ['Home', 'Movies', 'Series', 'My List'];
 
+// ─ Main App Component ─
 export default function App() {
   const [activeTab, setActiveTab] = useState('Home');
   const [search, setSearch] = useState('');
@@ -217,6 +320,7 @@ export default function App() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [updating, setUpdating] = useState(false);
 
+  // Load catalog
   const loadCatalog = async (signal?: AbortSignal) => {
     setLoading(true);
     setLoadError(null);
@@ -233,6 +337,7 @@ export default function App() {
     }
   };
 
+  // Load library
   const loadLibrary = async (token: string) => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/users/me/library`, {
@@ -246,6 +351,7 @@ export default function App() {
     }
   };
 
+  // Submit auth
   const submitAuth = async () => {
     setAuthError('');
     try {
@@ -271,6 +377,7 @@ export default function App() {
     }
   };
 
+  // Toggle saved
   const toggleSaved = async (item: MediaItem) => {
     if (!authToken) {
       setAuthError('Sign in to save titles to your Cineflix account.');
@@ -295,6 +402,7 @@ export default function App() {
     }
   };
 
+  // Sign out
   const signOut = async () => {
     await SecureStore.deleteItemAsync('cf_user_token');
     setAuthToken('');
@@ -304,6 +412,7 @@ export default function App() {
     setActiveTab('Home');
   };
 
+  // Effects
   useEffect(() => {
     const controller = new AbortController();
     void loadCatalog(controller.signal);
@@ -338,21 +447,18 @@ export default function App() {
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
-
     const checkUpdates = async () => {
       try {
         const isAvailable = await Updates.checkForUpdateAsync();
-        if (isAvailable.isAvailable) {
-          setUpdateAvailable(true);
-        }
+        if (isAvailable.isAvailable) setUpdateAvailable(true);
       } catch {
-        // Ignore runtime update failures and continue with the current app.
+        // noop
       }
     };
-
     checkUpdates();
   }, []);
 
+  // Computed values
   const allGenres = useMemo(() => {
     const set = new Set<string>();
     media.forEach(item => {
@@ -374,11 +480,11 @@ export default function App() {
           : true;
     return matchesSearch && matchesTab;
   }), [activeTab, media, savedIds, search, movieGenre, seriesGenre]);
-  
+
   const resumed = useMemo(() => visibleItems.filter(item => (resumeData[item.id] || 0) > 0), [visibleItems, resumeData]);
   const hero = activeTab === 'Home' ? visibleItems[0] : null;
-  const continueWatching = resumed.slice(0, 4);
-  const discover = visibleItems.slice(0, 12).filter(item => !continueWatching.includes(item));
+  const continueWatching = resumed.slice(0, 5);
+  const discover = visibleItems.slice(1, 13).filter(item => !continueWatching.includes(item));
 
   const handleApplyUpdate = async () => {
     setUpdating(true);
@@ -395,10 +501,12 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#0b0b0b" />
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      <StatusBar barStyle="light-content" backgroundColor="#0a0e27" />
+
+      <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+        {/* Header */}
         <View style={styles.header}>
-          <View style={styles.brandWrap}>
+          <View style={styles.brandContainer}>
             <Image source={require('./assets/cineflix-icon.png')} style={styles.brandLogo} />
             <Text style={styles.brandName}>CINEFLIX</Text>
           </View>
@@ -407,240 +515,203 @@ export default function App() {
           </Pressable>
         </View>
 
-        <View style={styles.searchWrap}>
+        {/* Search */}
+        <View style={styles.searchContainer}>
           <TextInput
             value={search}
             onChangeText={setSearch}
-            placeholder="Movies, series, genres"
-            placeholderTextColor="#8a8d97"
+            placeholder="Search movies & series"
+            placeholderTextColor="#7a8096"
             style={styles.searchInput}
           />
+          {search ? <Pressable onPress={() => setSearch('')}><Text style={styles.searchClearText}>✕</Text></Pressable> : null}
         </View>
 
-        {(activeTab === 'Movies' || activeTab === 'Series') && allGenres.length > 0 ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.genreRow}>
+        {/* Genres */}
+        {(activeTab === 'Movies' || activeTab === 'Series') && allGenres.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.genreScroll}>
             {(['All'] as const).concat(allGenres as any[]).map((genre) => {
               const currentGenre = activeTab === 'Movies' ? movieGenre : seriesGenre;
               const isActive = currentGenre === genre;
               return (
                 <Pressable
                   key={genre}
-                  style={[styles.genreButton, isActive && styles.genreButtonActive]}
+                  style={[styles.genreChip, isActive && styles.genreChipActive]}
                   onPress={() => {
                     if (activeTab === 'Movies') setMovieGenre(genre);
                     else setSeriesGenre(genre);
                   }}
                 >
-                  <Text style={[styles.genreButtonText, isActive && styles.genreButtonTextActive]}>{genre}</Text>
+                  <Text style={[styles.genreChipText, isActive && styles.genreChipTextActive]}>{genre}</Text>
                 </Pressable>
               );
             })}
           </ScrollView>
-        ) : null}
+        )}
 
-        {hero ? (
-          <View style={styles.heroCard}>
-            <Image source={{ uri: hero.backdrop }} style={styles.heroBackground} />
-            <View style={styles.heroShade} />
-            <View style={styles.heroContent}>
-              <Text style={styles.heroBadge}>{hero.badge ?? (hero.type === 'series' ? 'TV SERIES' : 'MOVIE')}</Text>
-              <Text style={styles.heroTitle}>{hero.title}</Text>
-              <View style={styles.heroMetaRow}>
-                <Text style={styles.heroMeta}>{hero.year || ''}</Text>
-                <Text style={styles.heroMeta}>•</Text>
-                <Text style={styles.heroMeta}>{hero.rating}</Text>
-                <Text style={styles.heroMeta}>•</Text>
-                <Text style={styles.heroMeta}>{hero.duration}</Text>
-              </View>
-              <Text style={styles.heroDescription}>{hero.description}</Text>
-              <View style={styles.heroActions}>
-                <Pressable style={styles.primaryButton} onPress={() => setSelected(hero)}>
-                  <Text style={styles.buttonText}>Play</Text>
-                </Pressable>
-                <Pressable style={styles.secondaryButton} onPress={() => setSelected(hero)}>
-                  <Text style={styles.secondaryButtonText}>More Info</Text>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        ) : null}
+        {/* Hero */}
+        {hero ? <HeroSection item={hero} onPlay={() => setPlayerItem(hero)} onMoreInfo={() => setSelected(hero)} /> : null}
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{activeTab === 'My List' ? 'My List' : activeTab === 'Movies' ? 'Movies' : activeTab === 'Series' ? 'TV Series' : 'Latest Releases'}</Text>
-          <Pressable onPress={() => void loadCatalog()}><Text style={styles.sectionAction}>Refresh</Text></Pressable>
-        </View>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalList}>
-          {continueWatching.map((item) => (
-            <Pressable key={item.id} style={styles.card} onPress={() => setSelected(item)}>
-              <Image source={{ uri: item.image }} style={styles.poster} />
-              <View style={styles.cardProgress} />
-              <View style={styles.cardFooter}>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <Text style={styles.cardMeta}>{item.genre}</Text>
-              </View>
-            </Pressable>
-          ))}
-        </ScrollView>
-
-        {discover.length > 0 ? (
-          <>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>{activeTab === 'Series' ? 'More Series' : 'Popular on Cineflix'}</Text>
-              <Text style={styles.sectionAction}>Explore</Text>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalList}>
-              {discover.map((item) => (
-                <Pressable key={item.id} style={styles.portraitCard} onPress={() => setSelected(item)}>
-                  <Image source={{ uri: item.image }} style={styles.portraitPoster} />
-                  {item.imdb ? <View style={styles.ratingBadge}><Text style={styles.ratingText}>{item.imdb}</Text></View> : null}
-                  <Text style={styles.portraitTitle} numberOfLines={1}>{item.title}</Text>
-                </Pressable>
+        {/* Continue Watching */}
+        {continueWatching.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Continue Watching</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {continueWatching.map((item) => (
+                <ContinueWatchingCard key={item.id} item={item} onPress={() => setSelected(item)} />
               ))}
             </ScrollView>
-          </>
-        ) : null}
+          </View>
+        )}
 
-        {loading ? <Text style={styles.statusText}>Loading Cineflix...</Text> : null}
-        {!loading && loadError ? (
-          <Pressable style={styles.retryButton} onPress={() => void loadCatalog()}>
-            <Text style={styles.statusText}>{loadError}  Tap to retry</Text>
-          </Pressable>
-        ) : null}
-        {!loading && !loadError && visibleItems.length === 0 ? (
-          <Text style={styles.statusText}>{activeTab === 'My List' ? 'Your list is empty.' : 'No titles found.'}</Text>
-        ) : null}
+        {/* Discover */}
+        {discover.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{activeTab === 'Series' ? 'Popular Series' : activeTab === 'Movies' ? 'Popular Movies' : 'Discover'}</Text>
+            <View style={styles.gridContainer}>
+              {discover.slice(0, 6).map((item) => (
+                <View key={item.id} style={styles.gridItem}>
+                  <MediaCard item={item} onPress={() => setSelected(item)} />
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {loading ? <View style={styles.centerContent}><ActivityIndicator size="large" color="#e50914" /></View> : null}
+        {!loading && loadError ? <View style={styles.centerContent}><Text style={styles.errorText}>{loadError}</Text></View> : null}
+        {!loading && !loadError && visibleItems.length === 0 ? <View style={styles.centerContent}><Text style={styles.emptyText}>No titles found</Text></View> : null}
+
+        <View style={styles.bottomPadding} />
       </ScrollView>
 
+      {/* Detail Modal */}
       <Modal visible={Boolean(selected)} animationType="slide" onRequestClose={() => setSelected(null)}>
-        {selected ? (
-          <SafeAreaView style={styles.detailScreen}>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.detailScroll}>
-              <View style={styles.detailArtwork}>
+        {selected && (
+          <SafeAreaView style={styles.detailContainer}>
+            <ScrollView>
+              <View style={styles.detailBackdropContainer}>
                 <Image source={{ uri: selected.backdrop }} style={styles.detailBackdrop} />
-                <View style={styles.detailArtworkShade} />
-                <Pressable style={styles.detailClose} onPress={() => setSelected(null)}><Text style={styles.closeText}>X</Text></Pressable>
+                <Pressable style={styles.detailCloseButton} onPress={() => setSelected(null)}>
+                  <Text style={styles.detailCloseText}>✕</Text>
+                </Pressable>
+              </View>
+
+              <View style={styles.detailHeader}>
                 <Image source={{ uri: selected.image }} style={styles.detailPoster} />
-              </View>
-              <View style={styles.detailInfo}>
-                <Text style={styles.detailType}>{selected.type === 'series' ? 'TV SERIES' : 'MOVIE'}{selected.badge ? `  |  ${selected.badge}` : ''}</Text>
-                <Text style={styles.detailTitle}>{selected.title}</Text>
-                <Text style={styles.detailMeta}>{selected.year || ''}  ·  {selected.duration}  ·  {selected.rating}{selected.imdb ? `  ·  ${selected.imdb} IMDb` : ''}</Text>
-                <Text style={styles.detailDescription}>{selected.longDescription}</Text>
-                <View style={styles.detailActions}>
-                  <Pressable style={styles.primaryButton} onPress={() => setPlayerItem(selected)}>
-                    <Text style={styles.buttonText}>Play {selected.type === 'series' ? 'Series' : 'Now'}</Text>
-                  </Pressable>
-                  {selected.trailerUrl ? (
-                    <Pressable style={styles.secondaryButton} onPress={() => setPlayerItem({ ...selected, title: `${selected.title} Trailer`, sources: [{ provider: 'YOUTUBE', embedUrl: selected.trailerUrl }] })}>
-                      <Text style={styles.secondaryButtonText}>Trailer</Text>
-                    </Pressable>
-                  ) : null}
-                  <Pressable style={styles.secondaryButton} onPress={() => void toggleSaved(selected)}>
-                    <Text style={styles.secondaryButtonText}>{savedIds.includes(selected.id) ? 'In My List' : '+ My List'}</Text>
-                  </Pressable>
+                <View style={styles.detailTitleContainer}>
+                  <Text style={styles.detailBadge}>{selected.type === 'series' ? 'TV SERIES' : 'MOVIE'}</Text>
+                  <Text style={styles.detailTitle}>{selected.title}</Text>
+                  <Text style={styles.detailMeta}>{selected.year} • {selected.rating}</Text>
                 </View>
-                {selected.seasonsData.map((season) => (
-                  <View key={season.id} style={styles.episodeSection}>
-                    <Text style={styles.sectionTitle}>{season.title || `Season ${season.seasonNumber}`}</Text>
-                    {season.episodes.map((episode) => {
-                      const episodeItem: MediaItem = {
-                        ...selected,
-                        id: episode.id,
-                        title: `${selected.title} - E${episode.episodeNumber}: ${episode.title}`,
-                        description: episode.description,
-                        longDescription: episode.description,
-                        duration: episode.duration || '',
-                        image: episode.thumbnailUrl || selected.image,
-                        sources: [{ provider: episode.provider, embedUrl: episode.embedUrl, playbackUrl: episode.playbackUrl }],
-                      };
-                      return (
-                        <Pressable key={episode.id} style={styles.episodeRow} onPress={() => setPlayerItem(episodeItem)}>
-                          <Image source={{ uri: episode.thumbnailUrl || selected.backdrop }} style={styles.episodePoster} />
-                          <View style={styles.episodeInfo}>
-                            <Text style={styles.episodeTitle}>E{episode.episodeNumber}: {episode.title}</Text>
-                            <Text style={styles.episodeDescription} numberOfLines={3}>{episode.description}</Text>
-                          </View>
-                          <Text style={styles.episodePlay}>Play</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                ))}
-                {selected.genre ? <Text style={styles.detailExtra}>Genre  {selected.genre}</Text> : null}
-                {selected.director ? <Text style={styles.detailExtra}>Director  {selected.director}</Text> : null}
-                {selected.cast.length ? <Text style={styles.detailExtra}>Cast  {selected.cast.join(', ')}</Text> : null}
               </View>
+
+              <View style={styles.detailDescContainer}>
+                <Text style={styles.detailDescription}>{selected.longDescription}</Text>
+              </View>
+
+              <View style={styles.detailActions}>
+                <Pressable style={styles.primaryButton} onPress={() => setPlayerItem(selected)}>
+                  <Text style={styles.primaryButtonText}>▶ Play</Text>
+                </Pressable>
+                <Pressable style={styles.secondaryButton} onPress={() => void toggleSaved(selected)}>
+                  <Text style={styles.secondaryButtonText}>{savedIds.includes(selected.id) ? '✓ Saved' : '+ Save'}</Text>
+                </Pressable>
+              </View>
+
+              {selected.genre ? <View style={styles.detailInfoRow}><Text style={styles.detailInfoLabel}>Genre</Text><Text style={styles.detailInfoValue}>{selected.genre}</Text></View> : null}
+              {selected.director ? <View style={styles.detailInfoRow}><Text style={styles.detailInfoLabel}>Director</Text><Text style={styles.detailInfoValue}>{selected.director}</Text></View> : null}
+              {selected.cast.length > 0 ? <View style={styles.detailInfoRow}><Text style={styles.detailInfoLabel}>Cast</Text><Text style={styles.detailInfoValue}>{selected.cast.join(', ')}</Text></View> : null}
+
+              {selected.seasonsData.map((season) => (
+                <View key={season.id} style={styles.episodeSection}>
+                  <Text style={styles.sectionTitle}>{season.title || `Season ${season.seasonNumber}`}</Text>
+                  {season.episodes.map((episode) => {
+                    const episodeItem: MediaItem = {
+                      ...selected,
+                      id: episode.id,
+                      title: `${selected.title} - E${episode.episodeNumber}: ${episode.title}`,
+                      description: episode.description,
+                      longDescription: episode.description,
+                      duration: episode.duration || '',
+                      image: episode.thumbnailUrl || selected.image,
+                      sources: [{ provider: episode.provider, embedUrl: episode.embedUrl, playbackUrl: episode.playbackUrl }],
+                    };
+                    return (
+                      <Pressable key={episode.id} style={styles.episodeRow} onPress={() => setPlayerItem(episodeItem)}>
+                        {episode.thumbnailUrl && <Image source={{ uri: episode.thumbnailUrl }} style={styles.episodeThumbnail} />}
+                        <View style={styles.episodeInfo}>
+                          <Text style={styles.episodeTitle}>E{episode.episodeNumber}: {episode.title}</Text>
+                          <Text style={styles.episodeDescription} numberOfLines={2}>{episode.description}</Text>
+                        </View>
+                        <Text style={styles.episodePlayIcon}>▶</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ))}
             </ScrollView>
           </SafeAreaView>
-        ) : null}
+        )}
       </Modal>
 
       {playerItem ? <PlaybackModal item={playerItem} onClose={() => setPlayerItem(null)} /> : null}
 
-      <Modal visible={updateAvailable} transparent animationType="slide">
-        <View style={styles.modalScrim}>
-          <View style={styles.authSheet}>
-            <View style={styles.authHeader}>
-              <Text style={styles.authTitle}>Update Available</Text>
-              <Pressable style={styles.closeButton} onPress={() => setUpdateAvailable(false)}>
-                <Text style={styles.closeText}>✕</Text>
-              </Pressable>
-            </View>
-            <Text style={styles.authHint}>A new version of Cineflix is available. Update now to get the latest features and improvements.</Text>
-            <Pressable
-              style={[styles.primaryButton, updating && { opacity: 0.6 }]}
-              onPress={() => void handleApplyUpdate()}
-              disabled={updating}
-            >
-              <Text style={styles.buttonText}>{updating ? 'Updating...' : 'Update Now'}</Text>
+      {/* Update Modal */}
+      <Modal visible={updateAvailable} transparent animationType="fade">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.updateModal}>
+            <Text style={styles.updateTitle}>Update Available</Text>
+            <Text style={styles.updateDescription}>Get the latest features and improvements.</Text>
+            <Pressable style={[styles.primaryButton, updating && { opacity: 0.6 }]} onPress={() => void handleApplyUpdate()} disabled={updating}>
+              <Text style={styles.primaryButtonText}>{updating ? 'Updating...' : 'Update Now'}</Text>
             </Pressable>
             <Pressable onPress={() => setUpdateAvailable(false)}>
-              <Text style={styles.authSwitch}>Maybe later</Text>
+              <Text style={styles.updateSkip}>Maybe Later</Text>
             </Pressable>
           </View>
         </View>
       </Modal>
 
+      {/* Bottom Nav */}
       <View style={styles.bottomNav}>
-        {tabs.map((tab, index) => (
-          <Pressable key={tab} style={styles.bottomNavButton} onPress={() => { setActiveTab(tab); setSelected(null); }}>
-            <Text style={[styles.bottomNavIcon, activeTab === tab && styles.bottomNavIconActive]}>{['⌂', '▣', '▤', '♡'][index]}</Text>
-            <Text style={[styles.bottomNavLabel, activeTab === tab && styles.bottomNavLabelActive]}>{tab}</Text>
+        {TABS.map((tab, index) => (
+          <Pressable key={tab} style={[styles.navItem, activeTab === tab && styles.navItemActive]} onPress={() => { setActiveTab(tab); setSelected(null); }}>
+            <Text style={[styles.navIcon, activeTab === tab && styles.navIconActive]}>{['⌂', '🎬', '📺', '❤'][index]}</Text>
+            <Text style={[styles.navLabel, activeTab === tab && styles.navLabelActive]}>{tab}</Text>
           </Pressable>
         ))}
       </View>
 
+      {/* Auth Modal */}
       <Modal visible={authOpen} transparent animationType="slide" onRequestClose={() => setAuthOpen(false)}>
-        <View style={styles.modalScrim}>
-          <View style={styles.authSheet}>
-            <View style={styles.authHeader}>
-              <Text style={styles.authTitle}>{account ? 'Cineflix Account' : authMode === 'login' ? 'Sign in to Cineflix' : 'Create your Cineflix account'}</Text>
-              <Pressable style={styles.closeButton} onPress={() => setAuthOpen(false)}>
-                <Text style={styles.closeText}>✕</Text>
-              </Pressable>
-            </View>
+        <View style={styles.authBackdrop}>
+          <View style={styles.authModal}>
+            <Pressable style={styles.authCloseButton} onPress={() => setAuthOpen(false)}>
+              <Text style={styles.authCloseText}>✕</Text>
+            </Pressable>
+
             {account ? (
               <>
+                <Text style={styles.authTitle}>Account</Text>
                 <Text style={styles.accountName}>{account.name}</Text>
-                <Text style={styles.authHint}>{account.email}</Text>
+                <Text style={styles.accountEmail}>{account.email}</Text>
                 <Pressable style={styles.primaryButton} onPress={() => void signOut()}>
-                  <Text style={styles.buttonText}>Sign out</Text>
+                  <Text style={styles.primaryButtonText}>Sign Out</Text>
                 </Pressable>
               </>
             ) : (
               <>
-                {authMode === 'signup' ? (
-                  <TextInput value={authName} onChangeText={setAuthName} placeholder="Name" placeholderTextColor="#8a8d97" style={styles.authInput} autoCapitalize="words" />
-                ) : null}
-                <TextInput value={authEmail} onChangeText={setAuthEmail} placeholder="Email" placeholderTextColor="#8a8d97" style={styles.authInput} keyboardType="email-address" autoCapitalize="none" />
-                <TextInput value={authPassword} onChangeText={setAuthPassword} placeholder="Password" placeholderTextColor="#8a8d97" style={styles.authInput} secureTextEntry />
+                <Text style={styles.authTitle}>{authMode === 'login' ? 'Sign In' : 'Create Account'}</Text>
                 {authError ? <Text style={styles.authError}>{authError}</Text> : null}
+                {authMode === 'signup' ? <TextInput value={authName} onChangeText={setAuthName} placeholder="Full Name" placeholderTextColor="#7a8096" style={styles.authInput} /> : null}
+                <TextInput value={authEmail} onChangeText={setAuthEmail} placeholder="Email" placeholderTextColor="#7a8096" style={styles.authInput} keyboardType="email-address" autoCapitalize="none" />
+                <TextInput value={authPassword} onChangeText={setAuthPassword} placeholder="Password" placeholderTextColor="#7a8096" style={styles.authInput} secureTextEntry />
                 <Pressable style={styles.primaryButton} onPress={() => void submitAuth()}>
-                  <Text style={styles.buttonText}>{authMode === 'login' ? 'Sign in' : 'Create account'}</Text>
+                  <Text style={styles.primaryButtonText}>{authMode === 'login' ? 'Sign In' : 'Create Account'}</Text>
                 </Pressable>
-                <Pressable onPress={() => { setAuthMode((mode) => mode === 'login' ? 'signup' : 'login'); setAuthError(''); }}>
-                  <Text style={styles.authSwitch}>{authMode === 'login' ? 'New to Cineflix? Create an account' : 'Already registered? Sign in'}</Text>
+                <Pressable onPress={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}>
+                  <Text style={styles.authSwitch}>{authMode === 'login' ? 'Need an account? Sign Up' : 'Already have an account? Sign In'}</Text>
                 </Pressable>
               </>
             )}
@@ -651,702 +722,126 @@ export default function App() {
   );
 }
 
+// ─ STYLES ─
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#0b0b0b',
-  },
-  container: {
-    paddingHorizontal: 14,
-    paddingBottom: 110,
-    backgroundColor: '#0b0b0b',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 12,
-    marginBottom: 14,
-  },
-  brandWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  brandLogo: {
-    width: 30,
-    height: 30,
-    borderRadius: 7,
-    marginRight: 8,
-  },
-  brandName: {
-    color: '#fff',
-    fontWeight: '800',
-    letterSpacing: 1.2,
-    fontSize: 16,
-  },
-  profileButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#b52b25',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileText: {
-    color: '#fff',
-    fontWeight: '700',
-  },
-  tabRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 12,
-  },
-  tabButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: '#121a2a',
-  },
-  tabButtonActive: {
-    backgroundColor: '#e50914',
-  },
-  tabText: {
-    fontSize: 12,
-    color: '#d4d9e3',
-    fontWeight: '600',
-  },
-  tabTextActive: {
-    color: '#fff',
-  },
-  searchWrap: {
-    marginBottom: 18,
-  },
-  searchLabel: {
-    color: '#aeb6c3',
-    fontSize: 12,
-    marginBottom: 8,
-    marginLeft: 6,
-  },
-  searchInput: {
-    backgroundColor: '#1c1c1c',
-    borderRadius: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    color: '#fff',
-    borderWidth: 1,
-    borderColor: '#2e2e2e',
-  },
-  genreRow: {
-    marginBottom: 16,
-    marginHorizontal: -14,
-    paddingHorizontal: 14,
-  },
-  genreButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: '#252525',
-    marginRight: 8,
-  },
-  genreButtonActive: {
-    backgroundColor: '#e50914',
-  },
-  genreButtonText: {
-    color: '#aeb6c3',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  genreButtonTextActive: {
-    color: '#fff',
-  },
-  heroCard: {
-    height: 390,
-    borderRadius: 6,
-    overflow: 'hidden',
-    marginBottom: 20,
-    position: 'relative',
-  },
-  heroBackground: {
-    ...StyleSheet.absoluteFill,
-    width: '100%',
-    height: '100%',
-  },
-  heroShade: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(11, 11, 11, 0.46)',
-  },
-  heroContent: {
-    position: 'absolute',
-    left: 18,
-    right: 18,
-    bottom: 18,
-  },
-  heroBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 3,
-    color: '#fff',
-    backgroundColor: '#e50914',
-    fontWeight: '700',
-    fontSize: 10,
-    marginBottom: 10,
-  },
-  heroTitle: {
-    color: '#fff',
-    fontSize: 34,
-    fontWeight: '800',
-    marginBottom: 8,
-  },
-  heroMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 10,
-  },
-  heroMeta: {
-    color: '#edf1f7',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  heroDescription: {
-    color: '#e5eaf1',
-    fontSize: 13,
-    lineHeight: 19,
-    marginBottom: 16,
-  },
-  heroActions: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  primaryButton: {
-    backgroundColor: '#e50914',
-    paddingHorizontal: 18,
-    paddingVertical: 11,
-    borderRadius: 6,
-  },
-  secondaryButton: {
-    backgroundColor: '#252525',
-    paddingHorizontal: 18,
-    paddingVertical: 11,
-    borderRadius: 12,
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: '700',
-  },
-  secondaryButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  sectionAction: {
-    color: '#aeb6c3',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  horizontalList: {
-    marginBottom: 20,
-  },
-  card: {
-    width: 152,
-    marginRight: 10,
-    borderRadius: 6,
-    overflow: 'hidden',
-    backgroundColor: '#141414',
-  },
-  poster: {
-    width: 152,
-    height: 214,
-  },
-  cardProgress: {
-    position: 'absolute',
-    left: 10,
-    right: 10,
-    bottom: 58,
-    height: 4,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.35)',
-  },
-  cardFooter: {
-    padding: 10,
-  },
-  cardTitle: {
-    color: '#fff',
-    fontWeight: '700',
-  },
-  cardMeta: {
-    color: '#aeb6c3',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  portraitCard: {
-    width: 132,
-    marginRight: 12,
-  },
-  portraitPoster: {
-    width: 132,
-    height: 180,
-    borderRadius: 6,
-  },
-  ratingBadge: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  ratingText: {
-    color: '#f5c518',
-    fontWeight: '700',
-    fontSize: 11,
-  },
-  portraitTitle: {
-    color: '#fff',
-    fontWeight: '700',
-    marginTop: 8,
-  },
-  matchesList: {
-    gap: 12,
-  },
-  matchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 16,
-    backgroundColor: '#101827',
-    padding: 10,
-  },
-  matchPoster: {
-    width: 80,
-    height: 110,
-    borderRadius: 12,
-  },
-  matchMeta: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  matchTitle: {
-    color: '#fff',
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  matchText: {
-    color: '#aeb6c3',
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  sheet: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: '72%',
-    backgroundColor: '#0b0b0b',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    overflow: 'hidden',
-  },
-  sheetBackdrop: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    height: '50%',
-    width: '100%',
-  },
-  sheetOverlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(11, 11, 11, 0.4)',
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 14,
-    right: 14,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 2,
-  },
-  closeText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  sheetContent: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: 18,
-    paddingTop: 30,
-    paddingBottom: 32,
-    backgroundColor: '#0b0b0b',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-  },
-  sheetBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
-    color: '#fff',
-    backgroundColor: '#e50914',
-    fontWeight: '700',
-    fontSize: 10,
-    marginBottom: 12,
-  },
-  sheetTitle: {
-    color: '#fff',
-    fontSize: 28,
-    fontWeight: '800',
-    marginBottom: 8,
-  },
-  sheetMeta: {
-    color: '#dfe7f5',
-    fontSize: 13,
-    marginBottom: 12,
-  },
-  sheetDescription: {
-    color: '#dfe7f5',
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 18,
-  },
-  statusText: {
-    color: '#aeb6c3',
-    fontSize: 13,
-    lineHeight: 20,
-    marginVertical: 16,
-  },
-  retryButton: {
-    paddingVertical: 4,
-  },
-  modalScrim: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.68)',
-  },
-  authSheet: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 36,
-    backgroundColor: '#141414',
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
-    gap: 12,
-  },
-  authHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  authTitle: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: '700',
-    paddingRight: 38,
-  },
-  authInput: {
-    color: '#fff',
-    backgroundColor: '#1c1c1c',
-    borderColor: '#2e2e2e',
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  authError: {
-    color: '#ff8388',
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  authHint: {
-    color: '#aeb6c3',
-    fontSize: 14,
-  },
-  accountName: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  authSwitch: {
-    color: '#d4d9e3',
-    textAlign: 'center',
-    paddingTop: 4,
-  },
-  bottomNav: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingTop: 7,
-    paddingBottom: Platform.OS === 'ios' ? 22 : 10,
-    backgroundColor: 'rgba(20,20,20,0.98)',
-    borderTopColor: '#2e2e2e',
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  bottomNavButton: {
-    minWidth: 64,
-    alignItems: 'center',
-    gap: 3,
-    paddingVertical: 2,
-  },
-  bottomNavIcon: {
-    color: '#777',
-    fontSize: 22,
-    lineHeight: 25,
-  },
-  bottomNavIconActive: {
-    color: '#e50914',
-  },
-  bottomNavLabel: {
-    color: '#777',
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  bottomNavLabelActive: {
-    color: '#fff',
-  },
-  detailScreen: {
-    flex: 1,
-    backgroundColor: '#0b0b0b',
-  },
-  detailScroll: {
-    paddingBottom: 30,
-  },
-  detailArtwork: {
-    height: 330,
-    justifyContent: 'flex-end',
-    paddingHorizontal: 18,
-    paddingBottom: 18,
-    overflow: 'hidden',
-  },
-  detailBackdrop: {
-    ...StyleSheet.absoluteFill,
-    width: '100%',
-    height: '100%',
-  },
-  detailArtworkShade: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(11,11,11,0.44)',
-  },
-  detailClose: {
-    position: 'absolute',
-    top: 12,
-    right: 14,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    zIndex: 2,
-  },
-  detailPoster: {
-    width: 100,
-    height: 148,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  detailInfo: {
-    paddingHorizontal: 18,
-    paddingTop: 20,
-  },
-  detailType: {
-    color: '#e50914',
-    fontSize: 11,
-    fontWeight: '800',
-    marginBottom: 7,
-  },
-  detailTitle: {
-    color: '#fff',
-    fontSize: 29,
-    fontWeight: '800',
-    marginBottom: 8,
-  },
-  detailMeta: {
-    color: '#aaa',
-    fontSize: 12,
-    marginBottom: 15,
-  },
-  detailDescription: {
-    color: '#ccc',
-    fontSize: 14,
-    lineHeight: 21,
-    marginBottom: 18,
-  },
-  detailActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 9,
-    marginBottom: 22,
-  },
-  episodeSection: {
-    marginTop: 16,
-    marginBottom: 10,
-    gap: 12,
-  },
-  episodeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 9,
-    borderBottomColor: '#2e2e2e',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  episodePoster: {
-    width: 112,
-    height: 66,
-    borderRadius: 4,
-    backgroundColor: '#252525',
-  },
-  episodeInfo: {
-    flex: 1,
-    gap: 5,
-  },
-  episodeTitle: {
-    color: '#eee',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  episodeDescription: {
-    color: '#999',
-    fontSize: 11,
-    lineHeight: 15,
-  },
-  episodePlay: {
-    color: '#e50914',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  detailExtra: {
-    color: '#aaa',
-    fontSize: 12,
-    lineHeight: 19,
-    paddingTop: 9,
-    borderTopColor: '#2e2e2e',
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  playerScreen: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  playerHeader: {
-    height: 54,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    paddingHorizontal: 14,
-    backgroundColor: '#0b0b0b',
-  },
-  playerCloseButton: {
-    minWidth: 48,
-    paddingVertical: 8,
-  },
-  playerCloseText: {
-    color: '#eee',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  playerHeaderTitle: {
-    flex: 1,
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  playerHeaderSpacer: {
-    width: 48,
-  },
-  playerSourceButton: {
-    minWidth: 48,
-    alignItems: 'flex-end',
-    paddingVertical: 8,
-  },
-  playerSourceText: {
-    color: '#e50914',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  playerStage: {
-    flex: 1,
-    backgroundColor: '#000',
-    justifyContent: 'center',
-  },
-  webPlayer: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  nativeVideo: {
-    width: '100%',
-    aspectRatio: 16 / 9,
-    backgroundColor: '#000',
-  },
-  playerLoading: {
-    ...StyleSheet.absoluteFill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#000',
-  },
-  playerErrorOverlay: {
-    ...StyleSheet.absoluteFill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    padding: 24,
-    backgroundColor: 'rgba(0,0,0,0.9)',
-  },
-  playerMessage: {
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 28,
-  },
-  playerMessageTitle: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  playerMessageText: {
-    color: '#aaa',
-    fontSize: 13,
-    lineHeight: 19,
-    textAlign: 'center',
-  },
-  playerFooter: {
-    padding: 16,
-    backgroundColor: '#0b0b0b',
-    gap: 6,
-  },
-  playerFooterTitle: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 15,
-  },
-  playerFooterDescription: {
-    color: '#999',
-    fontSize: 12,
-    lineHeight: 17,
-  },
+  safeArea: { flex: 1, backgroundColor: '#0a0e27' },
+  scrollContainer: { paddingBottom: 100 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING, paddingVertical: SPACING, borderBottomWidth: 1, borderBottomColor: '#1a1f3a' },
+  brandContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  brandLogo: { width: 32, height: 32 },
+  brandName: { fontSize: 18, fontWeight: '700', color: '#fff', letterSpacing: 1 },
+  profileButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#e50914', justifyContent: 'center', alignItems: 'center' },
+  profileText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  searchContainer: { marginHorizontal: SPACING, marginVertical: 12, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#151d38', borderRadius: 8, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#2a2f45' },
+  searchInput: { flex: 1, color: '#fff', fontSize: 14, fontWeight: '500' },
+  searchClearText: { fontSize: 18, color: '#7a8096' },
+  genreScroll: { paddingHorizontal: SPACING, marginBottom: SPACING },
+  genreChip: { paddingHorizontal: 12, paddingVertical: 6, marginRight: 8, borderRadius: 20, backgroundColor: '#1a1f3a', borderWidth: 1, borderColor: '#2a2f45' },
+  genreChipActive: { backgroundColor: '#e50914', borderColor: '#e50914' },
+  genreChipText: { fontSize: 12, fontWeight: '600', color: '#7a8096' },
+  genreChipTextActive: { color: '#fff' },
+  hero: { marginHorizontal: SPACING, marginBottom: SPACING * 1.5, borderRadius: 12, overflow: 'hidden', height: 320 },
+  heroImage: { ...StyleSheet.absoluteFillObject },
+  heroGradient: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)' },
+  heroContent: { flex: 1, justifyContent: 'flex-end', padding: SPACING, gap: 8 },
+  heroBadge: { fontSize: 11, fontWeight: '700', color: '#e50914', letterSpacing: 0.5 },
+  heroTitle: { fontSize: 28, fontWeight: '700', color: '#fff' },
+  heroStats: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  heroStat: { fontSize: 12, fontWeight: '500', color: '#b0b8c8' },
+  heroStatDot: { fontSize: 10, color: '#666' },
+  heroDescription: { fontSize: 13, fontWeight: '400', color: '#d0d8e0', marginTop: 4, lineHeight: 18 },
+  heroActions: { flexDirection: 'row', gap: SPACING, marginTop: 12 },
+  section: { marginHorizontal: SPACING, marginBottom: SPACING * 2 },
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#fff', marginBottom: 12 },
+  cwCard: { marginRight: 12, borderRadius: 8, overflow: 'hidden' },
+  cwPoster: { width: 160, height: 100 },
+  cwOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
+  cwPlayIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(229,9,20,0.9)', justifyContent: 'center', alignItems: 'center' },
+  cwProgress: { height: 3, backgroundColor: 'rgba(255,255,255,0.2)' },
+  cwProgressFill: { height: '100%', backgroundColor: '#e50914' },
+  cwInfo: { paddingVertical: 8 },
+  cwTitle: { fontSize: 12, fontWeight: '600', color: '#fff' },
+  cwMeta: { fontSize: 11, color: '#7a8096', marginTop: 2 },
+  playSymbol: { fontSize: 14, color: '#fff', fontWeight: '700' },
+  card: { marginRight: 12, borderRadius: 8, overflow: 'hidden', position: 'relative' },
+  cardImage: { width: CARD_WIDTH, height: CARD_HEIGHT },
+  cardOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
+  cardPlayButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(229,9,20,0.9)', justifyContent: 'center', alignItems: 'center' },
+  ratingBadge: { position: 'absolute', top: 6, right: 6, paddingHorizontal: 6, paddingVertical: 3, backgroundColor: 'rgba(245, 197, 24, 0.9)', borderRadius: 4 },
+  ratingText: { fontSize: 10, fontWeight: '700', color: '#000' },
+  gridContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  gridItem: { width: '48%', marginBottom: 12 },
+  primaryButton: { paddingVertical: 11, paddingHorizontal: 16, backgroundColor: '#e50914', borderRadius: 6, alignItems: 'center' },
+  primaryButtonText: { fontSize: 14, fontWeight: '700', color: '#fff' },
+  secondaryButton: { paddingVertical: 11, paddingHorizontal: 16, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', alignItems: 'center' },
+  secondaryButtonText: { fontSize: 14, fontWeight: '600', color: '#fff' },
+  detailContainer: { flex: 1, backgroundColor: '#0a0e27' },
+  detailBackdropContainer: { height: 240, marginBottom: -60, zIndex: 1, position: 'relative' },
+  detailBackdrop: { width: '100%', height: '100%' },
+  detailCloseButton: { position: 'absolute', top: 12, right: 12, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', zIndex: 10 },
+  detailCloseText: { fontSize: 20, fontWeight: '700', color: '#fff' },
+  detailHeader: { flexDirection: 'row', paddingHorizontal: SPACING, paddingTop: 40, paddingBottom: SPACING, gap: 12, backgroundColor: '#0a0e27' },
+  detailPoster: { width: 100, height: 150, borderRadius: 6 },
+  detailTitleContainer: { flex: 1, justifyContent: 'center' },
+  detailBadge: { fontSize: 10, fontWeight: '700', color: '#e50914', letterSpacing: 0.5 },
+  detailTitle: { fontSize: 22, fontWeight: '700', color: '#fff', marginTop: 4 },
+  detailMeta: { fontSize: 11, fontWeight: '500', color: '#b0b8c8', marginTop: 6 },
+  detailDescContainer: { paddingHorizontal: SPACING, paddingVertical: 12, backgroundColor: '#0a0e27' },
+  detailDescription: { fontSize: 13, fontWeight: '400', color: '#d0d8e0', lineHeight: 19 },
+  detailActions: { paddingHorizontal: SPACING, paddingVertical: 12, flexDirection: 'row', gap: 10 },
+  detailInfoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: SPACING, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#1a1f3a' },
+  detailInfoLabel: { fontSize: 12, fontWeight: '600', color: '#7a8096' },
+  detailInfoValue: { fontSize: 13, fontWeight: '500', color: '#fff', flex: 1, textAlign: 'right' },
+  episodeSection: { paddingHorizontal: SPACING, paddingVertical: 12 },
+  episodeRow: { flexDirection: 'row', gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#1a1f3a', alignItems: 'center' },
+  episodeThumbnail: { width: 80, height: 45, borderRadius: 4 },
+  episodeInfo: { flex: 1 },
+  episodeTitle: { fontSize: 13, fontWeight: '600', color: '#fff' },
+  episodeDescription: { fontSize: 11, color: '#7a8096', marginTop: 2, lineHeight: 15 },
+  episodePlayIcon: { fontSize: 16, color: '#e50914' },
+  bottomNav: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 70, backgroundColor: '#0a0e27', borderTopWidth: 1, borderTopColor: '#1a1f3a', flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingBottom: 12 },
+  navItem: { alignItems: 'center', gap: 4 },
+  navItemActive: {},
+  navIcon: { fontSize: 24, opacity: 0.5 },
+  navIconActive: { opacity: 1 },
+  navLabel: { fontSize: 11, fontWeight: '600', color: '#7a8096' },
+  navLabelActive: { color: '#fff' },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
+  updateModal: { backgroundColor: '#1a1f3a', borderRadius: 12, padding: SPACING * 1.5, marginHorizontal: SPACING, alignItems: 'center' },
+  updateTitle: { fontSize: 18, fontWeight: '700', color: '#fff', marginBottom: 8 },
+  updateDescription: { fontSize: 13, fontWeight: '400', color: '#d0d8e0', textAlign: 'center', marginBottom: 16 },
+  updateSkip: { fontSize: 14, fontWeight: '600', color: '#7a8096', marginTop: 12 },
+  authBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
+  authModal: { backgroundColor: '#1a1f3a', borderTopLeftRadius: 12, borderTopRightRadius: 12, padding: SPACING * 1.5, paddingTop: 20 },
+  authCloseButton: { position: 'absolute', top: 12, right: 12, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center' },
+  authCloseText: { fontSize: 20, fontWeight: '700', color: '#fff' },
+  authTitle: { fontSize: 20, fontWeight: '700', color: '#fff', marginBottom: 16 },
+  accountName: { fontSize: 16, fontWeight: '600', color: '#fff', marginBottom: 4 },
+  accountEmail: { fontSize: 13, color: '#7a8096', marginBottom: 16 },
+  authInput: { backgroundColor: '#0a0e27', borderWidth: 1, borderColor: '#2a2f45', borderRadius: 6, paddingHorizontal: 12, paddingVertical: 10, color: '#fff', fontSize: 14, marginBottom: 12 },
+  authError: { fontSize: 12, fontWeight: '500', color: '#ff6b6b', marginBottom: 12 },
+  authSwitch: { fontSize: 13, fontWeight: '600', color: '#e50914', textAlign: 'center', marginTop: 12 },
+  centerContent: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
+  errorText: { fontSize: 14, color: '#ff6b6b', textAlign: 'center' },
+  emptyText: { fontSize: 14, color: '#7a8096', textAlign: 'center' },
+  playerScreen: { flex: 1, backgroundColor: '#000' },
+  playerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING, paddingVertical: 10, backgroundColor: 'rgba(0,0,0,0.8)' },
+  playerCloseButton: { paddingVertical: 6, paddingHorizontal: 12 },
+  playerCloseText: { fontSize: 14, fontWeight: '600', color: '#fff' },
+  playerHeaderTitle: { flex: 1, fontSize: 14, fontWeight: '600', color: '#fff', textAlign: 'center' },
+  playerHeaderSpacer: { width: 60 },
+  playerSourceButton: { paddingVertical: 6, paddingHorizontal: 12, backgroundColor: 'rgba(229,9,20,0.8)', borderRadius: 4 },
+  playerSourceText: { fontSize: 12, fontWeight: '600', color: '#fff' },
+  playerStage: { flex: 1, backgroundColor: '#000' },
+  webPlayer: { flex: 1 },
+  nativeVideo: { flex: 1 },
+  playerLoading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  playerMessage: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  playerMessageTitle: { fontSize: 16, fontWeight: '700', color: '#fff', marginBottom: 8 },
+  playerMessageText: { fontSize: 13, color: '#bbb', textAlign: 'center' },
+  playerErrorOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center', padding: SPACING },
+  playerFooter: { paddingHorizontal: SPACING, paddingVertical: 12, backgroundColor: 'rgba(0,0,0,0.6)' },
+  playerFooterTitle: { fontSize: 14, fontWeight: '600', color: '#fff', marginBottom: 4 },
+  playerFooterDescription: { fontSize: 12, color: '#bbb', lineHeight: 16 },
+  bottomPadding: { height: 20 },
 });
