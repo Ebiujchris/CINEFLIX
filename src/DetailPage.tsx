@@ -129,7 +129,7 @@ export default function DetailPage({ item, allContent, myList, onToggleList, onB
 
           {/* action buttons */}
           <div className="detail-actions">
-            <button className="btn-play-big" onClick={() => { setActiveEpisode(null); setShowPlayer(true) }}>
+            <button className="btn-play-big" onClick={() => { if (!localStorage.getItem('cf_user_token')) { onRequireAccount() } else { setActiveEpisode(null); setShowPlayer(true) } }}>
               <Play size={18} fill="currentColor" /> Play {item.type === 'series' ? 'Series' : 'Now'}
             </button>
             {item.trailerUrl && (
@@ -168,6 +168,10 @@ export default function DetailPage({ item, allContent, myList, onToggleList, onB
                       key={episode.id}
                       className="ep-card"
                       onClick={() => {
+                        if (!localStorage.getItem('cf_user_token')) {
+                          onRequireAccount()
+                          return
+                        }
                         setActiveEpisode({
                           ...item,
                           id:              episode.id,
