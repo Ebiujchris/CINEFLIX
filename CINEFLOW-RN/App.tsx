@@ -1,240 +1,67 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Image,
-  ActivityIndicator,
-  Modal,
-  Platform,
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  StatusBar,
-  Text,
-  TextInput,
-  View,
-  Dimensions,
+  SafeAreaView, View, Text, ScrollView, FlatList, Pressable, TextInput, Image,
+  Modal, ActivityIndicator, StatusBar, Platform, RefreshControl, StyleSheet
 } from 'react-native';
-import * as Updates from 'expo-updates';
+import { Video } from 'expo-video';
 import * as SecureStore from 'expo-secure-store';
-import { VideoView, useVideoPlayer } from 'expo-video';
 import { WebView } from 'react-native-webview';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const SPACING = 16;
-const CARD_WIDTH = 110;
-const CARD_HEIGHT = 165;
+const API_BASE_URL = 'https://cineflix-backend-production.up.railway.app';
 
-// ─ Type Definitions ─
-type MediaType = 'movie' | 'series';
+const Colors = {
+  bg: '#0b0b0b',
+  bg2: '#141414',
+  bg3: '#1c1c1c',
+  bg4: '#252525',
+  border: '#2e2e2e',
+  text: '#e5e5e5',
+  muted: '#777',
+  accent: '#e50914',
+  gold: '#f5c518',
+};
 
 type MediaItem = {
   id: string;
   title: string;
-  type: MediaType;
+  type: 'movie' | 'series';
   year: number;
   duration: string;
   genre: string;
   rating: string;
   imdb: string;
-  badge?: string;
   description: string;
-  image: string;
-  backdrop: string;
   longDescription: string;
   trailerUrl?: string;
   director?: string;
   cast: string[];
-  sources: VideoSource[];
-  seasonsData: Season[];
+  image: string;
+  backdrop: string;
+  sources: Array<{ provider: string; embedUrl?: string; playbackUrl?: string; isPrimary?: boolean }>;
+  seasonsData: Array<{
+    id: string;
+    seasonNumber: number;
+    title?: string;
+    episodes: Array<{
+      id: string;
+      episodeNumber: number;
+      title: string;
+      description: string;
+      duration?: string;
+      thumbnailUrl?: string;
+      provider: string;
+      embedUrl?: string;
+      playbackUrl?: string;
+    }>;
+  }>;
 };
 
-type AccountUser = { id: string; email: string; name: string };
-type VideoSource = { provider: string; embedUrl?: string; playbackUrl?: string; isPrimary?: boolean };
-type Episode = {
-  id: string;
-  episodeNumber: number;
-  title: string;
-  description: string;
-  duration?: string;
-  thumbnailUrl?: string;
-  provider: string;
-  embedUrl?: string;
-  playbackUrl?: string;
-};
-type Season = { id: string; seasonNumber: number; title?: string; episodes: Episode[] };
+type AccountUser = { id: string; name: string; email: string };
 
-// ─ Utilities ─
 function youtubeEmbedUrl(value: string): string {
-  try {
-    const url = new URL(value);
-    const host = url.hostname.replace(/^www\./, '').toLowerCase();
-    const id = host === 'youtu.be' ? url.pathname.slice(1)
-      : url.pathname === '/watch' ? url.searchParams.get('v') || ''
-        : url.pathname.split('/')[2] || '';
-    return id && (host === 'youtu.be' || host.endsWith('youtube.com'))
-      ? `https://www.youtube.com/embed/${encodeURIComponent(id)}?autoplay=1&playsinline=1`
-      : value;
-  } catch {
-    return value;
-  }
+  const m = value.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&?/]+)/i);
+  return m ? `https://www.youtube.com/embed/${m[1]}?autoplay=1` : value;
 }
-
-// ─ Playback Modal Component ─
-function PlaybackModal({ item, onClose }: { item: MediaItem; onClose: () => void }) {
-  const sources = item.sources.length ? item.sources : [{ provider: 'EXTERNAL_EMBED', embedUrl: undefined, playbackUrl: undefined }];
-  const [sourceIndex, setSourceIndex] = useState(0);
-  const [webError, setWebError] = useState(false);
-  const source = sources[Math.min(sourceIndex, sources.length - 1)];
-  const isEmbed = Boolean(source.embedUrl) || ['YOUTUBE', 'VIMEO', 'EXTERNAL_EMBED'].includes(source.provider);
-  const player = useVideoPlayer(isEmbed ? null : source.playbackUrl || null, (instance) => {
-    instance.play();
-  });
-
-  return (
-    <Modal visible animationType="fade" supportedOrientations={['portrait', 'landscape']} onRequestClose={onClose}>
-      <SafeAreaView style={styles.playerScreen}>
-        <View style={styles.playerHeader}>
-          <Pressable style={styles.playerCloseButton} onPress={onClose}>
-            <Text style={styles.playerCloseText}>Back</Text>
-          </Pressable>
-          <Text style={styles.playerHeaderTitle} numberOfLines={1}>{item.title}</Text>
-          {sources.length > 1 ? (
-            <Pressable style={styles.playerSourceButton} onPress={() => { setWebError(false); setSourceIndex((index) => (index + 1) % sources.length); }}>
-              <Text style={styles.playerSourceText}>Source</Text>
-            </Pressable>
-          ) : <View style={styles.playerHeaderSpacer} />}
-        </View>
-
-        <View style={styles.playerStage}>
-          {isEmbed && source.embedUrl ? (
-            <WebView
-              key={`${source.embedUrl}-${sourceIndex}`}
-              source={{ uri: source.provider === 'YOUTUBE' ? youtubeEmbedUrl(source.embedUrl) : source.embedUrl }}
-              style={styles.webPlayer}
-              javaScriptEnabled
-              domStorageEnabled
-              allowsInlineMediaPlayback
-              mediaPlaybackRequiresUserAction={false}
-              allowsFullscreenVideo
-              onError={() => setWebError(true)}
-              onHttpError={(event) => { if (event.nativeEvent.statusCode >= 400) setWebError(true); }}
-              renderLoading={() => <View style={styles.playerLoading}><ActivityIndicator size="large" color="#e50914" /></View>}
-              startInLoadingState
-            />
-          ) : !isEmbed && source.playbackUrl ? (
-            <VideoView
-              player={player}
-              style={styles.nativeVideo}
-              nativeControls
-              fullscreenOptions={{ enable: true, orientation: 'landscape' }}
-              allowsPictureInPicture
-              contentFit="contain"
-            />
-          ) : (
-            <View style={styles.playerMessage}>
-              <Text style={styles.playerMessageTitle}>Playback source unavailable</Text>
-              <Text style={styles.playerMessageText}>This title does not have a playable source configured.</Text>
-            </View>
-          )}
-
-          {webError && (
-            <View style={styles.playerErrorOverlay}>
-              <Text style={styles.playerMessageTitle}>Player could not load</Text>
-              <Text style={styles.playerMessageText}>Try another source or check your connection.</Text>
-              {sources.length > 1 && (
-                <Pressable style={styles.primaryButton} onPress={() => { setWebError(false); setSourceIndex((index) => (index + 1) % sources.length); }}>
-                  <Text style={styles.primaryButtonText}>Try another source</Text>
-                </Pressable>
-              )}
-            </View>
-          )}
-        </View>
-
-        <View style={styles.playerFooter}>
-          <Text style={styles.playerFooterTitle}>{item.title}</Text>
-          <Text style={styles.playerFooterDescription} numberOfLines={2}>{item.description}</Text>
-        </View>
-      </SafeAreaView>
-    </Modal>
-  );
-}
-
-// ─ Continue Watching Card ─
-function ContinueWatchingCard({ item, onPress }: { item: MediaItem; onPress: () => void }) {
-  return (
-    <Pressable style={styles.cwCard} onPress={onPress}>
-      <Image source={{ uri: item.backdrop || item.image }} style={styles.cwPoster} />
-      <View style={styles.cwOverlay}>
-        <View style={styles.cwPlayIcon}>
-          <Text style={styles.playSymbol}>▶</Text>
-        </View>
-      </View>
-      <View style={styles.cwProgress}>
-        <View style={[styles.cwProgressFill, { width: '35%' }]} />
-      </View>
-      <View style={styles.cwInfo}>
-        <Text style={styles.cwTitle} numberOfLines={1}>{item.title}</Text>
-        <Text style={styles.cwMeta} numberOfLines={1}>{item.genre}</Text>
-      </View>
-    </Pressable>
-  );
-}
-
-// ─ Portrait Card ─
-function MediaCard({ item, onPress }: { item: MediaItem; onPress: () => void }) {
-  return (
-    <Pressable style={styles.card} onPress={onPress}>
-      <Image source={{ uri: item.image }} style={styles.cardImage} />
-      <View style={styles.cardOverlay}>
-        <View style={styles.cardPlayButton}>
-          <Text style={styles.playSymbol}>▶</Text>
-        </View>
-      </View>
-      {item.imdb && (
-        <View style={styles.ratingBadge}>
-          <Text style={styles.ratingText}>★ {item.imdb}</Text>
-        </View>
-      )}
-    </Pressable>
-  );
-}
-
-// ─ Hero Section ─
-function HeroSection({ item, onPlay, onMoreInfo }: { item: MediaItem; onPlay: () => void; onMoreInfo: () => void }) {
-  return (
-    <View style={styles.hero}>
-      <Image source={{ uri: item.backdrop }} style={styles.heroImage} />
-      <View style={styles.heroGradient} />
-      <View style={styles.heroContent}>
-        {item.badge && <Text style={styles.heroBadge}>{item.badge}</Text>}
-        <Text style={styles.heroTitle}>{item.title}</Text>
-        <View style={styles.heroStats}>
-          <Text style={styles.heroStat}>{item.year}</Text>
-          <Text style={styles.heroStatDot}>•</Text>
-          <Text style={styles.heroStat}>{item.rating}</Text>
-          {item.imdb && (
-            <>
-              <Text style={styles.heroStatDot}>•</Text>
-              <Text style={styles.heroStat}>★ {item.imdb}</Text>
-            </>
-          )}
-        </View>
-        <Text style={styles.heroDescription} numberOfLines={3}>{item.description}</Text>
-        <View style={styles.heroActions}>
-          <Pressable style={styles.primaryButton} onPress={onPlay}>
-            <Text style={styles.primaryButtonText}>▶ Play</Text>
-          </Pressable>
-          <Pressable style={styles.secondaryButton} onPress={onMoreInfo}>
-            <Text style={styles.secondaryButtonText}>ℹ Info</Text>
-          </Pressable>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-// ─ API & Mapping ─
-const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL || 'https://cineflix-be.vercel.app').replace(/\/+$/, '');
 
 function mapApiItem(value: unknown): MediaItem | null {
   if (!value || typeof value !== 'object') return null;
@@ -243,8 +70,8 @@ function mapApiItem(value: unknown): MediaItem | null {
 
   const poster = typeof item.posterUrl === 'string' ? item.posterUrl : '';
   const backdrop = typeof item.backdropUrl === 'string' ? item.backdropUrl : poster;
-  const videos = Array.isArray(item.videos) ? item.videos as Record<string, unknown>[] : [];
-  const seasonsData = Array.isArray(item.seasonsData) ? item.seasonsData as Record<string, unknown>[] : [];
+  const videos = Array.isArray(item.videos) ? (item.videos as Record<string, unknown>[]) : [];
+  const seasonsData = Array.isArray(item.seasonsData) ? (item.seasonsData as Record<string, unknown>[]) : [];
 
   return {
     id: item.id,
@@ -255,7 +82,6 @@ function mapApiItem(value: unknown): MediaItem | null {
     genre: typeof item.genre === 'string' ? item.genre : '',
     rating: typeof item.rating === 'string' ? item.rating : 'NR',
     imdb: typeof item.imdb === 'string' ? item.imdb : '',
-    badge: typeof item.badge === 'string' ? item.badge : undefined,
     description: typeof item.description === 'string' ? item.description : '',
     longDescription: typeof item.longDescription === 'string' ? item.longDescription : typeof item.description === 'string' ? item.description : '',
     trailerUrl: typeof item.trailerUrl === 'string' ? item.trailerUrl : undefined,
@@ -271,10 +97,9 @@ function mapApiItem(value: unknown): MediaItem | null {
       id: typeof season.id === 'string' ? season.id : `${item.id}-season-${seasonIndex + 1}`,
       seasonNumber: Number(season.seasonNumber) || seasonIndex + 1,
       title: typeof season.title === 'string' ? season.title : undefined,
-      episodes: (Array.isArray(season.episodes) ? season.episodes as Record<string, unknown>[] : [])
-        .filter((episode) => episode.isPublished !== false)
+      episodes: (Array.isArray(season.episodes) ? (season.episodes as Record<string, unknown>[]) : [])
         .map((episode, episodeIndex) => {
-          const episodeVideos = Array.isArray(episode.videos) ? episode.videos as Record<string, unknown>[] : [];
+          const episodeVideos = Array.isArray(episode.videos) ? (episode.videos as Record<string, unknown>[]) : [];
           const episodeVideo = episodeVideos.find((video) => video.isPrimary) || episodeVideos[0] || {};
           return {
             id: typeof episode.id === 'string' ? episode.id : `${season.id}-episode-${episodeIndex + 1}`,
@@ -294,12 +119,33 @@ function mapApiItem(value: unknown): MediaItem | null {
   };
 }
 
-const TABS = ['Home', 'Movies', 'Series', 'My List'];
+function CWCard({ item, onPress, onRemove }: { item: MediaItem; onPress: () => void; onRemove: () => void }) {
+  return (
+    <Pressable onPress={onPress} style={s.cwCard}>
+      <View style={s.cwPoster}>
+        <Image source={{ uri: item.backdrop || item.image }} style={s.cwImage} />
+        <Pressable style={s.cwRemove} onPress={onRemove}>
+          <Text style={s.cwRemoveText}>✕</Text>
+        </Pressable>
+        <View style={s.cwPlayBtn}>
+          <Text style={s.cwPlayIcon}>▶</Text>
+        </View>
+      </View>
+      <Text style={s.cwTitle} numberOfLines={1}>{item.title}</Text>
+      <Text style={s.cwMeta}>{item.genre} · {item.year}</Text>
+    </Pressable>
+  );
+}
 
-// ─ Main App Component ─
-export default function App() {
-  const [activeTab, setActiveTab] = useState('Home');
-  const [search, setSearch] = useState('');
+function MediaCard({ item, onPress }: { item: MediaItem; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} style={s.card}>
+      <Image source={{ uri: item.image }} style={s.cardImage} />
+    </Pressable>
+  );
+}
+
+function App() {
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [account, setAccount] = useState<AccountUser | null>(null);
@@ -310,62 +156,58 @@ export default function App() {
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authError, setAuthError] = useState('');
-  const [selected, setSelected] = useState<MediaItem | null>(null);
-  const [playerItem, setPlayerItem] = useState<MediaItem | null>(null);
+  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [resumeData, setResumeData] = useState<Record<string, number>>({});
-  const [movieGenre, setMovieGenre] = useState('All');
-  const [seriesGenre, setSeriesGenre] = useState('All');
-  const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [updating, setUpdating] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<MediaItem | null>(null);
+  const [playerItem, setPlayerItem] = useState<MediaItem | null>(null);
+  const [trailerOpen, setTrailerOpen] = useState(false);
+  const [activeSeason, setActiveSeason] = useState(1);
 
-  // Load catalog
-  const loadCatalog = async (signal?: AbortSignal) => {
-    setLoading(true);
-    setLoadError(null);
+  const loadCatalog = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/content?limit=100`, { signal });
-      const data = await response.json() as { items?: unknown[]; error?: string };
-      if (!response.ok) throw new Error(data.error || 'Could not load Cineflix content.');
+      const response = await fetch(`${API_BASE_URL}/api/content?limit=100`);
+      const data = (await response.json()) as { items?: unknown[] };
+      if (!response.ok) throw new Error('Could not load content');
       setMedia((data.items || []).map(mapApiItem).filter((item): item is MediaItem => item !== null));
     } catch (error) {
-      if (signal?.aborted) return;
-      setLoadError(error instanceof Error ? error.message : 'Could not reach the Cineflix server.');
+      console.error('Load catalog error:', error);
     } finally {
-      if (!signal?.aborted) setLoading(false);
+      setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  // Load library
   const loadLibrary = async (token: string) => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/users/me/library`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.ok) throw new Error('Could not load your Cineflix list.');
-      const library = await response.json() as { watchlist?: string[] };
+      if (!response.ok) throw new Error('Could not load library');
+      const library = (await response.json()) as { watchlist?: string[] };
       setSavedIds(library.watchlist || []);
     } catch {
       setSavedIds([]);
     }
   };
 
-  // Submit auth
   const submitAuth = async () => {
     setAuthError('');
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/${authMode === 'signup' ? 'signup' : 'login'}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...(authMode === 'signup' ? { name: authName } : {}),
-          email: authEmail,
-          password: authPassword,
-        }),
-      });
-      const data = await response.json() as { token?: string; user?: AccountUser; error?: string };
-      if (!response.ok || !data.token || !data.user) throw new Error(data.error || 'Account request failed.');
+      const response = await fetch(
+        `${API_BASE_URL}/api/users/${authMode === 'signup' ? 'signup' : 'login'}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...(authMode === 'signup' ? { name: authName } : {}),
+            email: authEmail,
+            password: authPassword,
+          }),
+        }
+      );
+      const data = (await response.json()) as { token?: string; user?: AccountUser };
+      if (!response.ok || !data.token || !data.user) throw new Error('Auth failed');
       await SecureStore.setItemAsync('cf_user_token', data.token);
       setAuthToken(data.token);
       setAccount(data.user);
@@ -373,58 +215,47 @@ export default function App() {
       setAuthOpen(false);
       await loadLibrary(data.token);
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : 'Could not reach the Cineflix server.');
+      setAuthError(error instanceof Error ? error.message : 'Auth error');
     }
   };
 
-  // Toggle saved
   const toggleSaved = async (item: MediaItem) => {
     if (!authToken) {
-      setAuthError('Sign in to save titles to your Cineflix account.');
+      setAuthError('Sign in to save titles');
       setAuthMode('login');
       setAuthOpen(true);
       return;
     }
     const isSaved = savedIds.includes(item.id);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/me/watchlist/${encodeURIComponent(item.id)}`, {
-        method: isSaved ? 'DELETE' : 'PUT',
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-      if (!response.ok) {
-        const data = await response.json() as { error?: string };
-        throw new Error(data.error || 'Could not update your Cineflix list.');
-      }
-      setSavedIds((ids) => isSaved ? ids.filter((id) => id !== item.id) : [...ids, item.id]);
+      const response = await fetch(
+        `${API_BASE_URL}/api/users/me/watchlist/${encodeURIComponent(item.id)}`,
+        {
+          method: isSaved ? 'DELETE' : 'PUT',
+          headers: { Authorization: `Bearer ${authToken}` },
+        }
+      );
+      if (!response.ok) throw new Error('Could not update watchlist');
+      setSavedIds((ids) => (isSaved ? ids.filter((id) => id !== item.id) : [...ids, item.id]));
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : 'Could not update your Cineflix list.');
-      setAuthOpen(true);
+      setAuthError(error instanceof Error ? error.message : 'Error updating watchlist');
     }
   };
 
-  // Sign out
   const signOut = async () => {
     await SecureStore.deleteItemAsync('cf_user_token');
     setAuthToken('');
     setAccount(null);
     setSavedIds([]);
     setAuthOpen(false);
-    setActiveTab('Home');
   };
 
-  // Effects
   useEffect(() => {
-    const controller = new AbortController();
-    void loadCatalog(controller.signal);
-    return () => controller.abort();
-  }, []);
-
-  useEffect(() => {
-    let active = true;
+    loadCatalog();
     const restoreAccount = async () => {
       try {
         const token = await SecureStore.getItemAsync('cf_user_token');
-        if (!token || !active) return;
+        if (!token) return;
         const response = await fetch(`${API_BASE_URL}/api/users/me`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -432,416 +263,545 @@ export default function App() {
           await SecureStore.deleteItemAsync('cf_user_token');
           return;
         }
-        const data = await response.json() as { user?: AccountUser };
-        if (!active || !data.user) return;
-        setAuthToken(token);
-        setAccount(data.user);
-        await loadLibrary(token);
+        const data = (await response.json()) as { user?: AccountUser };
+        if (data.user) {
+          setAuthToken(token);
+          setAccount(data.user);
+          await loadLibrary(token);
+        }
       } catch {
-        if (active) setAccount(null);
+        setAccount(null);
       }
     };
-    void restoreAccount();
-    return () => { active = false; };
+    restoreAccount();
   }, []);
 
-  useEffect(() => {
-    if (Platform.OS === 'web') return;
-    const checkUpdates = async () => {
-      try {
-        const isAvailable = await Updates.checkForUpdateAsync();
-        if (isAvailable.isAvailable) setUpdateAvailable(true);
-      } catch {
-        // noop
-      }
-    };
-    checkUpdates();
-  }, []);
+  const hero = media.length > 0 ? media[0] : null;
+  const similar = useMemo(() => {
+    if (!selectedItem || !hero) return [];
+    const genres = selectedItem.genre.split(',').map((g) => g.trim());
+    return media.filter(
+      (c) => c.id !== selectedItem.id && c.genre.split(',').some((g) => genres.includes(g.trim()))
+    ).slice(0, 6);
+  }, [selectedItem, media]);
 
-  // Computed values
-  const allGenres = useMemo(() => {
-    const set = new Set<string>();
-    media.forEach(item => {
-      item.genre.split(',').forEach(g => {
-        const trimmed = g.trim();
-        if (trimmed) set.add(trimmed);
-      });
-    });
-    return Array.from(set).sort();
-  }, [media]);
+  if (playerItem) {
+    const source = playerItem.sources?.[0];
+    return (
+      <SafeAreaView style={s.safeArea}>
+        <StatusBar barStyle="light-content" backgroundColor={Colors.bg} />
+        <View style={s.playerContainer}>
+          {source?.embedUrl ? (
+            <WebView
+              source={{ uri: youtubeEmbedUrl(source.embedUrl) }}
+              style={s.webview}
+              allowsFullscreenVideo
+            />
+          ) : source?.playbackUrl ? (
+            <Video
+              source={{ uri: source.playbackUrl }}
+              style={s.video}
+              controls
+              useNativeControls
+              isLooping={false}
+            />
+          ) : (
+            <View style={s.noSource}>
+              <Text style={s.noSourceText}>No playback source available</Text>
+            </View>
+          )}
+          <Pressable style={s.playerClose} onPress={() => setPlayerItem(null)}>
+            <Text style={s.playerCloseText}>← Back</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
-  const visibleItems = useMemo(() => media.filter((item) => {
-    const matchesSearch = !search || `${item.title} ${item.genre} ${item.description}`.toLowerCase().includes(search.toLowerCase());
-    const currentGenre = activeTab === 'Movies' ? movieGenre : activeTab === 'Series' ? seriesGenre : 'All';
-    const matchesGenre = currentGenre === 'All' || item.genre.toLowerCase().includes(currentGenre.toLowerCase());
-    const matchesTab = activeTab === 'Movies' ? item.type === 'movie' && matchesGenre
-      : activeTab === 'Series' ? item.type === 'series' && matchesGenre
-        : activeTab === 'My List' ? savedIds.includes(item.id)
-          : true;
-    return matchesSearch && matchesTab;
-  }), [activeTab, media, savedIds, search, movieGenre, seriesGenre]);
+  if (selectedItem) {
+    return (
+      <SafeAreaView style={s.safeArea}>
+        <StatusBar barStyle="light-content" backgroundColor={Colors.bg} />
+        <ScrollView style={s.detailPage}>
+          {/* Header */}
+          <View style={s.detailHeader}>
+            <Image source={{ uri: selectedItem.backdrop }} style={s.detailBackdrop} />
+            <Pressable style={s.detailBackButton} onPress={() => setSelectedItem(null)}>
+              <Text style={s.detailBackText}>← Back</Text>
+            </Pressable>
+          </View>
 
-  const resumed = useMemo(() => visibleItems.filter(item => (resumeData[item.id] || 0) > 0), [visibleItems, resumeData]);
-  const hero = activeTab === 'Home' ? visibleItems[0] : null;
-  const continueWatching = resumed.slice(0, 5);
-  const discover = visibleItems.slice(1, 13).filter(item => !continueWatching.includes(item));
+          {/* Hero section */}
+          <View style={s.detailHero}>
+            <Image source={{ uri: selectedItem.image }} style={s.detailPoster} />
+            <View style={s.detailInfo}>
+              <Text style={s.detailBadge}>{selectedItem.type === 'series' ? 'TV SERIES' : 'MOVIE'}</Text>
+              <Text style={s.detailTitle}>{selectedItem.title}</Text>
+              <Text style={s.detailMeta}>
+                {selectedItem.year} · {selectedItem.duration} · {selectedItem.rating}
+                {selectedItem.imdb && ` · ⭐ ${selectedItem.imdb}`}
+              </Text>
+              <Text style={s.detailDesc}>{selectedItem.longDescription}</Text>
 
-  const handleApplyUpdate = async () => {
-    setUpdating(true);
-    try {
-      await Updates.fetchUpdateAsync();
-      await Updates.reloadAsync();
-    } catch (error) {
-      setAuthError('Could not apply update. Please try again.');
-      setUpdateAvailable(false);
-    } finally {
-      setUpdating(false);
-    }
-  };
+              {/* Action buttons */}
+              <View style={s.detailActions}>
+                <Pressable style={s.playButton} onPress={() => setPlayerItem(selectedItem)}>
+                  <Text style={s.playButtonText}>▶ PLAY</Text>
+                </Pressable>
+                {selectedItem.trailerUrl && (
+                  <Pressable style={s.trailerButton} onPress={() => setTrailerOpen(true)}>
+                    <Text style={s.trailerButtonText}>📹 TRAILER</Text>
+                  </Pressable>
+                )}
+                <Pressable
+                  style={s.saveButton}
+                  onPress={() => toggleSaved(selectedItem)}
+                >
+                  <Text style={s.saveButtonText}>
+                    {savedIds.includes(selectedItem.id) ? '✓ SAVED' : '+ LIST'}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+
+          {/* Details */}
+          <View style={s.detailDetails}>
+            {selectedItem.genre && (
+              <View style={s.detailRow}>
+                <Text style={s.detailLabel}>Genre</Text>
+                <Text style={s.detailValue}>{selectedItem.genre}</Text>
+              </View>
+            )}
+            {selectedItem.director && (
+              <View style={s.detailRow}>
+                <Text style={s.detailLabel}>Director</Text>
+                <Text style={s.detailValue}>{selectedItem.director}</Text>
+              </View>
+            )}
+            {selectedItem.cast.length > 0 && (
+              <View style={s.detailRow}>
+                <Text style={s.detailLabel}>Cast</Text>
+                <Text style={s.detailValue}>{selectedItem.cast.join(', ')}</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Episodes for series */}
+          {selectedItem.type === 'series' && selectedItem.seasonsData.length > 0 && (
+            <View style={s.episodeSection}>
+              <Text style={s.sectionTitle}>Episodes</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.seasonTabs}>
+                {selectedItem.seasonsData.map((season) => (
+                  <Pressable
+                    key={season.id}
+                    style={[
+                      s.seasonTab,
+                      activeSeason === season.seasonNumber && s.seasonTabActive,
+                    ]}
+                    onPress={() => setActiveSeason(season.seasonNumber)}
+                  >
+                    <Text style={s.seasonTabText}>
+                      {season.title || `Season ${season.seasonNumber}`}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+
+              {selectedItem.seasonsData
+                .find((s) => s.seasonNumber === activeSeason)
+                ?.episodes.map((episode) => (
+                  <Pressable
+                    key={episode.id}
+                    style={s.episodeCard}
+                    onPress={() => {
+                      setPlayerItem({
+                        ...selectedItem,
+                        id: episode.id,
+                        title: `${selectedItem.title} - E${episode.episodeNumber}: ${episode.title}`,
+                        description: episode.description,
+                        longDescription: episode.description,
+                        duration: episode.duration || '',
+                        image: episode.thumbnailUrl || selectedItem.image,
+                        sources: [
+                          {
+                            provider: episode.provider,
+                            embedUrl: episode.embedUrl,
+                            playbackUrl: episode.playbackUrl,
+                          },
+                        ],
+                      });
+                    }}
+                  >
+                    {episode.thumbnailUrl && (
+                      <Image
+                        source={{ uri: episode.thumbnailUrl }}
+                        style={s.episodeThumb}
+                      />
+                    )}
+                    <View style={s.episodeInfo}>
+                      <Text style={s.episodeTitle}>
+                        E{episode.episodeNumber}: {episode.title}
+                      </Text>
+                      <Text style={s.episodeDesc} numberOfLines={2}>
+                        {episode.description}
+                      </Text>
+                      {episode.duration && (
+                        <Text style={s.episodeDur}>⏱ {episode.duration}</Text>
+                      )}
+                    </View>
+                  </Pressable>
+                ))}
+            </View>
+          )}
+
+          {/* Similar/You May Also Like */}
+          {similar.length > 0 && (
+            <View style={s.similarSection}>
+              <Text style={s.sectionTitle}>You May Also Like</Text>
+              <View style={s.similarGrid}>
+                {similar.map((item) => (
+                  <Pressable key={item.id} onPress={() => setSelectedItem(item)}>
+                    <Image source={{ uri: item.image }} style={s.similarCard} />
+                    <Text style={s.similarTitle} numberOfLines={1}>
+                      {item.title}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          )}
+        </ScrollView>
+
+        {/* Trailer Modal */}
+        {trailerOpen && selectedItem.trailerUrl && (
+          <Modal transparent animationType="fade" onRequestClose={() => setTrailerOpen(false)}>
+            <Pressable
+              style={s.trailerBackdrop}
+              onPress={() => setTrailerOpen(false)}
+            >
+              <View style={s.trailerBox}>
+                <Pressable
+                  style={s.trailerClose}
+                  onPress={() => setTrailerOpen(false)}
+                >
+                  <Text style={s.trailerCloseText}>✕</Text>
+                </Pressable>
+                <WebView
+                  source={{ uri: youtubeEmbedUrl(selectedItem.trailerUrl) }}
+                  style={s.trailerIframe}
+                />
+              </View>
+            </Pressable>
+          </Modal>
+        )}
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#0a0e27" />
+    <SafeAreaView style={s.safeArea}>
+      <StatusBar barStyle="light-content" backgroundColor={Colors.bg} />
 
-      <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={s.scrollView}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadCatalog(); }} tintColor={Colors.accent} />}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.brandContainer}>
-            <Image source={require('./assets/cineflix-icon.png')} style={styles.brandLogo} />
-            <Text style={styles.brandName}>CINEFLIX</Text>
-          </View>
-          <Pressable style={styles.profileButton} onPress={() => { setAuthError(''); setAuthOpen(true); }}>
-            <Text style={styles.profileText}>{account?.name.charAt(0).toUpperCase() || 'C'}</Text>
+        <View style={s.header}>
+          <Text style={s.appTitle}>CINEFLIX</Text>
+          <Pressable onPress={() => { setAuthError(''); setAuthOpen(true); }}>
+            <View style={s.profileButton}>
+              <Text style={s.profileInitial}>
+                {account?.name.charAt(0).toUpperCase() || 'C'}
+              </Text>
+            </View>
           </Pressable>
         </View>
 
         {/* Search */}
-        <View style={styles.searchContainer}>
+        <View style={s.searchBox}>
           <TextInput
             value={search}
             onChangeText={setSearch}
-            placeholder="Search movies & series"
-            placeholderTextColor="#7a8096"
-            style={styles.searchInput}
+            placeholder="Search"
+            placeholderTextColor={Colors.muted}
+            style={s.searchInput}
           />
-          {search ? <Pressable onPress={() => setSearch('')}><Text style={styles.searchClearText}>✕</Text></Pressable> : null}
         </View>
 
-        {/* Genres */}
-        {(activeTab === 'Movies' || activeTab === 'Series') && allGenres.length > 0 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.genreScroll}>
-            {(['All'] as const).concat(allGenres as any[]).map((genre) => {
-              const currentGenre = activeTab === 'Movies' ? movieGenre : seriesGenre;
-              const isActive = currentGenre === genre;
-              return (
-                <Pressable
-                  key={genre}
-                  style={[styles.genreChip, isActive && styles.genreChipActive]}
-                  onPress={() => {
-                    if (activeTab === 'Movies') setMovieGenre(genre);
-                    else setSeriesGenre(genre);
-                  }}
-                >
-                  <Text style={[styles.genreChipText, isActive && styles.genreChipTextActive]}>{genre}</Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        )}
+        {loading && <ActivityIndicator size="large" color={Colors.accent} style={s.loader} />}
 
-        {/* Hero */}
-        {hero ? <HeroSection item={hero} onPlay={() => setPlayerItem(hero)} onMoreInfo={() => setSelected(hero)} /> : null}
+        {!loading && hero && (
+          <Pressable onPress={() => setSelectedItem(hero)} style={s.heroCard}>
+            <Image source={{ uri: hero.backdrop }} style={s.heroImage} />
+            <View style={s.heroScrim} />
+            <View style={s.heroContent}>
+              <Text style={s.heroTitle}>{hero.title}</Text>
+              <Text style={s.heroDesc} numberOfLines={2}>
+                {hero.description}
+              </Text>
+              <View style={s.heroActions}>
+                <Pressable
+                  style={s.heroPlayBtn}
+                  onPress={() => setPlayerItem(hero)}
+                >
+                  <Text style={s.heroPlayText}>▶ PLAY</Text>
+                </Pressable>
+                <Pressable
+                  style={s.heroMoreBtn}
+                  onPress={() => setSelectedItem(hero)}
+                >
+                  <Text style={s.heroMoreText}>ℹ MORE</Text>
+                </Pressable>
+              </View>
+            </View>
+          </Pressable>
+        )}
 
         {/* Continue Watching */}
-        {continueWatching.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Continue Watching</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {continueWatching.map((item) => (
-                <ContinueWatchingCard key={item.id} item={item} onPress={() => setSelected(item)} />
+        {media.slice(0, 4).length > 0 && (
+          <View style={s.section}>
+            <Text style={s.sectionTitle}>Continue Watching</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.horizontalScroll}>
+              {media.slice(0, 4).map((item) => (
+                <CWCard
+                  key={item.id}
+                  item={item}
+                  onPress={() => setSelectedItem(item)}
+                  onRemove={() => {}}
+                />
               ))}
             </ScrollView>
           </View>
         )}
 
-        {/* Discover */}
-        {discover.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{activeTab === 'Series' ? 'Popular Series' : activeTab === 'Movies' ? 'Popular Movies' : 'Discover'}</Text>
-            <View style={styles.gridContainer}>
-              {discover.slice(0, 6).map((item) => (
-                <View key={item.id} style={styles.gridItem}>
-                  <MediaCard item={item} onPress={() => setSelected(item)} />
-                </View>
-              ))}
+        {/* Trending */}
+        {media.length > 0 && (
+          <>
+            <View style={s.section}>
+              <Text style={s.sectionTitle}>Trending Now</Text>
+              <View style={s.cardGrid}>
+                {media.slice(0, 6).map((item) => (
+                  <MediaCard
+                    key={item.id}
+                    item={item}
+                    onPress={() => setSelectedItem(item)}
+                  />
+                ))}
+              </View>
             </View>
+
+            <View style={s.section}>
+              <Text style={s.sectionTitle}>New Releases</Text>
+              <View style={s.cardGrid}>
+                {media.slice(6, 12).map((item) => (
+                  <MediaCard
+                    key={item.id}
+                    item={item}
+                    onPress={() => setSelectedItem(item)}
+                  />
+                ))}
+              </View>
+            </View>
+          </>
+        )}
+
+        {!loading && media.length === 0 && (
+          <View style={s.emptyState}>
+            <Text style={s.emptyStateText}>No content found</Text>
           </View>
         )}
 
-        {loading ? <View style={styles.centerContent}><ActivityIndicator size="large" color="#e50914" /></View> : null}
-        {!loading && loadError ? <View style={styles.centerContent}><Text style={styles.errorText}>{loadError}</Text></View> : null}
-        {!loading && !loadError && visibleItems.length === 0 ? <View style={styles.centerContent}><Text style={styles.emptyText}>No titles found</Text></View> : null}
-
-        <View style={styles.bottomPadding} />
+        <View style={s.bottomPadding} />
       </ScrollView>
 
-      {/* Detail Modal */}
-      <Modal visible={Boolean(selected)} animationType="slide" onRequestClose={() => setSelected(null)}>
-        {selected && (
-          <SafeAreaView style={styles.detailContainer}>
-            <ScrollView>
-              <View style={styles.detailBackdropContainer}>
-                <Image source={{ uri: selected.backdrop }} style={styles.detailBackdrop} />
-                <Pressable style={styles.detailCloseButton} onPress={() => setSelected(null)}>
-                  <Text style={styles.detailCloseText}>✕</Text>
-                </Pressable>
-              </View>
-
-              <View style={styles.detailHeader}>
-                <Image source={{ uri: selected.image }} style={styles.detailPoster} />
-                <View style={styles.detailTitleContainer}>
-                  <Text style={styles.detailBadge}>{selected.type === 'series' ? 'TV SERIES' : 'MOVIE'}</Text>
-                  <Text style={styles.detailTitle}>{selected.title}</Text>
-                  <Text style={styles.detailMeta}>{selected.year} • {selected.rating}</Text>
-                </View>
-              </View>
-
-              <View style={styles.detailDescContainer}>
-                <Text style={styles.detailDescription}>{selected.longDescription}</Text>
-              </View>
-
-              <View style={styles.detailActions}>
-                <Pressable style={styles.primaryButton} onPress={() => setPlayerItem(selected)}>
-                  <Text style={styles.primaryButtonText}>▶ Play</Text>
-                </Pressable>
-                <Pressable style={styles.secondaryButton} onPress={() => void toggleSaved(selected)}>
-                  <Text style={styles.secondaryButtonText}>{savedIds.includes(selected.id) ? '✓ Saved' : '+ Save'}</Text>
-                </Pressable>
-              </View>
-
-              {selected.genre ? <View style={styles.detailInfoRow}><Text style={styles.detailInfoLabel}>Genre</Text><Text style={styles.detailInfoValue}>{selected.genre}</Text></View> : null}
-              {selected.director ? <View style={styles.detailInfoRow}><Text style={styles.detailInfoLabel}>Director</Text><Text style={styles.detailInfoValue}>{selected.director}</Text></View> : null}
-              {selected.cast.length > 0 ? <View style={styles.detailInfoRow}><Text style={styles.detailInfoLabel}>Cast</Text><Text style={styles.detailInfoValue}>{selected.cast.join(', ')}</Text></View> : null}
-
-              {selected.seasonsData.map((season) => (
-                <View key={season.id} style={styles.episodeSection}>
-                  <Text style={styles.sectionTitle}>{season.title || `Season ${season.seasonNumber}`}</Text>
-                  {season.episodes.map((episode) => {
-                    const episodeItem: MediaItem = {
-                      ...selected,
-                      id: episode.id,
-                      title: `${selected.title} - E${episode.episodeNumber}: ${episode.title}`,
-                      description: episode.description,
-                      longDescription: episode.description,
-                      duration: episode.duration || '',
-                      image: episode.thumbnailUrl || selected.image,
-                      sources: [{ provider: episode.provider, embedUrl: episode.embedUrl, playbackUrl: episode.playbackUrl }],
-                    };
-                    return (
-                      <Pressable key={episode.id} style={styles.episodeRow} onPress={() => setPlayerItem(episodeItem)}>
-                        {episode.thumbnailUrl && <Image source={{ uri: episode.thumbnailUrl }} style={styles.episodeThumbnail} />}
-                        <View style={styles.episodeInfo}>
-                          <Text style={styles.episodeTitle}>E{episode.episodeNumber}: {episode.title}</Text>
-                          <Text style={styles.episodeDescription} numberOfLines={2}>{episode.description}</Text>
-                        </View>
-                        <Text style={styles.episodePlayIcon}>▶</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              ))}
-            </ScrollView>
-          </SafeAreaView>
-        )}
-      </Modal>
-
-      {playerItem ? <PlaybackModal item={playerItem} onClose={() => setPlayerItem(null)} /> : null}
-
-      {/* Update Modal */}
-      <Modal visible={updateAvailable} transparent animationType="fade">
-        <View style={styles.modalBackdrop}>
-          <View style={styles.updateModal}>
-            <Text style={styles.updateTitle}>Update Available</Text>
-            <Text style={styles.updateDescription}>Get the latest features and improvements.</Text>
-            <Pressable style={[styles.primaryButton, updating && { opacity: 0.6 }]} onPress={() => void handleApplyUpdate()} disabled={updating}>
-              <Text style={styles.primaryButtonText}>{updating ? 'Updating...' : 'Update Now'}</Text>
-            </Pressable>
-            <Pressable onPress={() => setUpdateAvailable(false)}>
-              <Text style={styles.updateSkip}>Maybe Later</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Bottom Nav */}
-      <View style={styles.bottomNav}>
-        {TABS.map((tab, index) => (
-          <Pressable key={tab} style={[styles.navItem, activeTab === tab && styles.navItemActive]} onPress={() => { setActiveTab(tab); setSelected(null); }}>
-            <Text style={[styles.navIcon, activeTab === tab && styles.navIconActive]}>{['⌂', '🎬', '📺', '❤'][index]}</Text>
-            <Text style={[styles.navLabel, activeTab === tab && styles.navLabelActive]}>{tab}</Text>
-          </Pressable>
-        ))}
-      </View>
-
       {/* Auth Modal */}
-      <Modal visible={authOpen} transparent animationType="slide" onRequestClose={() => setAuthOpen(false)}>
-        <View style={styles.authBackdrop}>
-          <View style={styles.authModal}>
-            <Pressable style={styles.authCloseButton} onPress={() => setAuthOpen(false)}>
-              <Text style={styles.authCloseText}>✕</Text>
-            </Pressable>
+      <Modal visible={authOpen} transparent animationType="slide">
+        <SafeAreaView style={s.authBackdrop}>
+          <Pressable style={s.authClose} onPress={() => setAuthOpen(false)}>
+            <Text style={s.authCloseText}>✕</Text>
+          </Pressable>
 
-            {account ? (
-              <>
-                <Text style={styles.authTitle}>Account</Text>
-                <Text style={styles.accountName}>{account.name}</Text>
-                <Text style={styles.accountEmail}>{account.email}</Text>
-                <Pressable style={styles.primaryButton} onPress={() => void signOut()}>
-                  <Text style={styles.primaryButtonText}>Sign Out</Text>
-                </Pressable>
-              </>
-            ) : (
-              <>
-                <Text style={styles.authTitle}>{authMode === 'login' ? 'Sign In' : 'Create Account'}</Text>
-                {authError ? <Text style={styles.authError}>{authError}</Text> : null}
-                {authMode === 'signup' ? <TextInput value={authName} onChangeText={setAuthName} placeholder="Full Name" placeholderTextColor="#7a8096" style={styles.authInput} /> : null}
-                <TextInput value={authEmail} onChangeText={setAuthEmail} placeholder="Email" placeholderTextColor="#7a8096" style={styles.authInput} keyboardType="email-address" autoCapitalize="none" />
-                <TextInput value={authPassword} onChangeText={setAuthPassword} placeholder="Password" placeholderTextColor="#7a8096" style={styles.authInput} secureTextEntry />
-                <Pressable style={styles.primaryButton} onPress={() => void submitAuth()}>
-                  <Text style={styles.primaryButtonText}>{authMode === 'login' ? 'Sign In' : 'Create Account'}</Text>
-                </Pressable>
-                <Pressable onPress={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}>
-                  <Text style={styles.authSwitch}>{authMode === 'login' ? 'Need an account? Sign Up' : 'Already have an account? Sign In'}</Text>
-                </Pressable>
-              </>
-            )}
-          </View>
-        </View>
+          {account ? (
+            <View style={s.authForm}>
+              <Text style={s.authTitle}>Account</Text>
+              <Text style={s.accountName}>{account.name}</Text>
+              <Text style={s.accountEmail}>{account.email}</Text>
+              <Pressable style={s.signOutBtn} onPress={() => void signOut()}>
+                <Text style={s.signOutText}>Sign Out</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View style={s.authForm}>
+              <Text style={s.authTitle}>
+                {authMode === 'login' ? 'Sign In' : 'Create Account'}
+              </Text>
+              {authError && <Text style={s.authError}>{authError}</Text>}
+              {authMode === 'signup' && (
+                <TextInput
+                  value={authName}
+                  onChangeText={setAuthName}
+                  placeholder="Full Name"
+                  style={s.authInput}
+                  placeholderTextColor={Colors.muted}
+                />
+              )}
+              <TextInput
+                value={authEmail}
+                onChangeText={setAuthEmail}
+                placeholder="Email"
+                style={s.authInput}
+                placeholderTextColor={Colors.muted}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              <TextInput
+                value={authPassword}
+                onChangeText={setAuthPassword}
+                placeholder="Password"
+                style={s.authInput}
+                placeholderTextColor={Colors.muted}
+                secureTextEntry
+              />
+              <Pressable style={s.authSubmitBtn} onPress={() => void submitAuth()}>
+                <Text style={s.authSubmitText}>
+                  {authMode === 'login' ? 'Sign In' : 'Create Account'}
+                </Text>
+              </Pressable>
+              <Pressable onPress={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}>
+                <Text style={s.authSwitch}>
+                  {authMode === 'login'
+                    ? "Need an account? Sign Up"
+                    : "Already have an account? Sign In"}
+                </Text>
+              </Pressable>
+            </View>
+          )}
+        </SafeAreaView>
       </Modal>
     </SafeAreaView>
   );
 }
 
-// ─ STYLES ─
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#0a0e27' },
-  scrollContainer: { paddingBottom: 100 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING, paddingVertical: SPACING, borderBottomWidth: 1, borderBottomColor: '#1a1f3a' },
-  brandContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  brandLogo: { width: 32, height: 32 },
-  brandName: { fontSize: 18, fontWeight: '700', color: '#fff', letterSpacing: 1 },
-  profileButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#e50914', justifyContent: 'center', alignItems: 'center' },
-  profileText: { fontSize: 16, fontWeight: '700', color: '#fff' },
-  searchContainer: { marginHorizontal: SPACING, marginVertical: 12, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#151d38', borderRadius: 8, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#2a2f45' },
-  searchInput: { flex: 1, color: '#fff', fontSize: 14, fontWeight: '500' },
-  searchClearText: { fontSize: 18, color: '#7a8096' },
-  genreScroll: { paddingHorizontal: SPACING, marginBottom: SPACING },
-  genreChip: { paddingHorizontal: 12, paddingVertical: 6, marginRight: 8, borderRadius: 20, backgroundColor: '#1a1f3a', borderWidth: 1, borderColor: '#2a2f45' },
-  genreChipActive: { backgroundColor: '#e50914', borderColor: '#e50914' },
-  genreChipText: { fontSize: 12, fontWeight: '600', color: '#7a8096' },
-  genreChipTextActive: { color: '#fff' },
-  hero: { marginHorizontal: SPACING, marginBottom: SPACING * 1.5, borderRadius: 12, overflow: 'hidden', height: 320 },
-  heroImage: { ...StyleSheet.absoluteFillObject },
-  heroGradient: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)' },
-  heroContent: { flex: 1, justifyContent: 'flex-end', padding: SPACING, gap: 8 },
-  heroBadge: { fontSize: 11, fontWeight: '700', color: '#e50914', letterSpacing: 0.5 },
-  heroTitle: { fontSize: 28, fontWeight: '700', color: '#fff' },
-  heroStats: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
-  heroStat: { fontSize: 12, fontWeight: '500', color: '#b0b8c8' },
-  heroStatDot: { fontSize: 10, color: '#666' },
-  heroDescription: { fontSize: 13, fontWeight: '400', color: '#d0d8e0', marginTop: 4, lineHeight: 18 },
-  heroActions: { flexDirection: 'row', gap: SPACING, marginTop: 12 },
-  section: { marginHorizontal: SPACING, marginBottom: SPACING * 2 },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#fff', marginBottom: 12 },
-  cwCard: { marginRight: 12, borderRadius: 8, overflow: 'hidden' },
-  cwPoster: { width: 160, height: 100 },
-  cwOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
-  cwPlayIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(229,9,20,0.9)', justifyContent: 'center', alignItems: 'center' },
-  cwProgress: { height: 3, backgroundColor: 'rgba(255,255,255,0.2)' },
-  cwProgressFill: { height: '100%', backgroundColor: '#e50914' },
-  cwInfo: { paddingVertical: 8 },
-  cwTitle: { fontSize: 12, fontWeight: '600', color: '#fff' },
-  cwMeta: { fontSize: 11, color: '#7a8096', marginTop: 2 },
-  playSymbol: { fontSize: 14, color: '#fff', fontWeight: '700' },
-  card: { marginRight: 12, borderRadius: 8, overflow: 'hidden', position: 'relative' },
-  cardImage: { width: CARD_WIDTH, height: CARD_HEIGHT },
-  cardOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
-  cardPlayButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(229,9,20,0.9)', justifyContent: 'center', alignItems: 'center' },
-  ratingBadge: { position: 'absolute', top: 6, right: 6, paddingHorizontal: 6, paddingVertical: 3, backgroundColor: 'rgba(245, 197, 24, 0.9)', borderRadius: 4 },
-  ratingText: { fontSize: 10, fontWeight: '700', color: '#000' },
-  gridContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-  gridItem: { width: '48%', marginBottom: 12 },
-  primaryButton: { paddingVertical: 11, paddingHorizontal: 16, backgroundColor: '#e50914', borderRadius: 6, alignItems: 'center' },
-  primaryButtonText: { fontSize: 14, fontWeight: '700', color: '#fff' },
-  secondaryButton: { paddingVertical: 11, paddingHorizontal: 16, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', alignItems: 'center' },
-  secondaryButtonText: { fontSize: 14, fontWeight: '600', color: '#fff' },
-  detailContainer: { flex: 1, backgroundColor: '#0a0e27' },
-  detailBackdropContainer: { height: 240, marginBottom: -60, zIndex: 1, position: 'relative' },
-  detailBackdrop: { width: '100%', height: '100%' },
-  detailCloseButton: { position: 'absolute', top: 12, right: 12, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', zIndex: 10 },
-  detailCloseText: { fontSize: 20, fontWeight: '700', color: '#fff' },
-  detailHeader: { flexDirection: 'row', paddingHorizontal: SPACING, paddingTop: 40, paddingBottom: SPACING, gap: 12, backgroundColor: '#0a0e27' },
-  detailPoster: { width: 100, height: 150, borderRadius: 6 },
-  detailTitleContainer: { flex: 1, justifyContent: 'center' },
-  detailBadge: { fontSize: 10, fontWeight: '700', color: '#e50914', letterSpacing: 0.5 },
-  detailTitle: { fontSize: 22, fontWeight: '700', color: '#fff', marginTop: 4 },
-  detailMeta: { fontSize: 11, fontWeight: '500', color: '#b0b8c8', marginTop: 6 },
-  detailDescContainer: { paddingHorizontal: SPACING, paddingVertical: 12, backgroundColor: '#0a0e27' },
-  detailDescription: { fontSize: 13, fontWeight: '400', color: '#d0d8e0', lineHeight: 19 },
-  detailActions: { paddingHorizontal: SPACING, paddingVertical: 12, flexDirection: 'row', gap: 10 },
-  detailInfoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: SPACING, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#1a1f3a' },
-  detailInfoLabel: { fontSize: 12, fontWeight: '600', color: '#7a8096' },
-  detailInfoValue: { fontSize: 13, fontWeight: '500', color: '#fff', flex: 1, textAlign: 'right' },
-  episodeSection: { paddingHorizontal: SPACING, paddingVertical: 12 },
-  episodeRow: { flexDirection: 'row', gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#1a1f3a', alignItems: 'center' },
-  episodeThumbnail: { width: 80, height: 45, borderRadius: 4 },
+const s = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: Colors.bg },
+  scrollView: { flex: 1, backgroundColor: Colors.bg },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, backgroundColor: Colors.bg },
+  appTitle: { fontSize: 18, fontWeight: '700', color: '#fff', letterSpacing: 1.2 },
+  profileButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.accent, justifyContent: 'center', alignItems: 'center' },
+  profileInitial: { fontSize: 14, fontWeight: '700', color: '#fff' },
+
+  searchBox: { marginHorizontal: 12, marginBottom: 16, flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.bg3, borderRadius: 6, paddingHorizontal: 12, height: 40, borderWidth: 1, borderColor: Colors.border },
+  searchInput: { flex: 1, color: '#fff', fontSize: 14 },
+
+  heroCard: { marginHorizontal: 12, marginBottom: 28, borderRadius: 8, overflow: 'hidden', height: 300 },
+  heroImage: { width: '100%', height: '100%' },
+  heroScrim: { position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)' },
+  heroContent: { position: 'absolute', inset: 0, justifyContent: 'flex-end', padding: 16 },
+  heroTitle: { fontSize: 24, fontWeight: '700', color: '#fff', marginBottom: 8 },
+  heroDesc: { fontSize: 13, color: '#ccc', marginBottom: 14, lineHeight: 18 },
+  heroActions: { flexDirection: 'row', gap: 10 },
+  heroPlayBtn: { backgroundColor: Colors.accent, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 4, justifyContent: 'center' },
+  heroPlayText: { color: '#fff', fontWeight: '700', fontSize: 12 },
+  heroMoreBtn: { backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 4, justifyContent: 'center' },
+  heroMoreText: { color: '#fff', fontWeight: '700', fontSize: 12 },
+
+  section: { marginBottom: 32, paddingHorizontal: 12 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#fff', marginBottom: 12, letterSpacing: -0.3 },
+  horizontalScroll: { marginBottom: 0 },
+  cwCard: { marginRight: 12, width: 260, marginBottom: 0 },
+  cwPoster: { position: 'relative', aspectRatio: 16/9, backgroundColor: Colors.bg3, borderRadius: 6, overflow: 'hidden', marginBottom: 8 },
+  cwImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+  cwPlayBtn: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' },
+  cwPlayIcon: { fontSize: 36, color: '#fff', opacity: 0.8 },
+  cwRemove: { position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
+  cwRemoveText: { color: '#bbb', fontSize: 14, fontWeight: '600' },
+  cwTitle: { fontSize: 13, fontWeight: '600', color: '#fff' },
+  cwMeta: { fontSize: 11, color: Colors.muted },
+
+  cardGrid: { display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 0 },
+  card: { width: '28%', aspectRatio: 2/3, borderRadius: 6, overflow: 'hidden', backgroundColor: Colors.bg3 },
+  cardImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+
+  detailPage: { flex: 1, backgroundColor: Colors.bg },
+  detailHeader: { position: 'relative', height: 200 },
+  detailBackdrop: { width: '100%', height: '100%', resizeMode: 'cover' },
+  detailBackButton: { position: 'absolute', top: 16, left: 16, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 4 },
+  detailBackText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+
+  detailHero: { flexDirection: 'row', gap: 16, paddingHorizontal: 12, paddingTop: 20, paddingBottom: 20 },
+  detailPoster: { width: 100, height: 150, borderRadius: 6, backgroundColor: Colors.bg3 },
+  detailInfo: { flex: 1 },
+  detailBadge: { color: Colors.accent, fontSize: 9, fontWeight: '700', letterSpacing: 1, marginBottom: 6 },
+  detailTitle: { fontSize: 20, fontWeight: '700', color: '#fff', marginBottom: 8 },
+  detailMeta: { fontSize: 11, color: '#999', marginBottom: 12 },
+  detailDesc: { fontSize: 12, color: '#ccc', lineHeight: 18, marginBottom: 12 },
+
+  detailActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  playButton: { backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 4, justifyContent: 'center' },
+  playButtonText: { color: '#000', fontWeight: '700', fontSize: 11 },
+  trailerButton: { backgroundColor: Colors.bg4, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 4, borderWidth: 1, borderColor: Colors.border },
+  trailerButtonText: { color: '#fff', fontWeight: '600', fontSize: 11 },
+  saveButton: { backgroundColor: Colors.bg4, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 4, borderWidth: 1, borderColor: Colors.border },
+  saveButtonText: { color: '#fff', fontWeight: '600', fontSize: 11 },
+
+  detailDetails: { paddingHorizontal: 12, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  detailRow: { marginBottom: 12 },
+  detailLabel: { fontSize: 10, color: Colors.muted, fontWeight: '600', marginBottom: 4 },
+  detailValue: { fontSize: 12, color: '#ccc', lineHeight: 18 },
+
+  episodeSection: { paddingHorizontal: 12, paddingVertical: 20 },
+  seasonTabs: { marginBottom: 16, paddingBottom: 12 },
+  seasonTab: { marginRight: 8, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: Colors.border },
+  seasonTabActive: { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  seasonTabText: { fontSize: 12, fontWeight: '600', color: '#fff' },
+
+  episodeCard: { flexDirection: 'row', gap: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10, backgroundColor: Colors.bg3, borderRadius: 6, borderWidth: 1, borderColor: Colors.border },
+  episodeThumb: { width: 100, height: 60, borderRadius: 4, backgroundColor: Colors.bg2 },
   episodeInfo: { flex: 1 },
-  episodeTitle: { fontSize: 13, fontWeight: '600', color: '#fff' },
-  episodeDescription: { fontSize: 11, color: '#7a8096', marginTop: 2, lineHeight: 15 },
-  episodePlayIcon: { fontSize: 16, color: '#e50914' },
-  bottomNav: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 70, backgroundColor: '#0a0e27', borderTopWidth: 1, borderTopColor: '#1a1f3a', flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingBottom: 12 },
-  navItem: { alignItems: 'center', gap: 4 },
-  navItemActive: {},
-  navIcon: { fontSize: 24, opacity: 0.5 },
-  navIconActive: { opacity: 1 },
-  navLabel: { fontSize: 11, fontWeight: '600', color: '#7a8096' },
-  navLabelActive: { color: '#fff' },
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
-  updateModal: { backgroundColor: '#1a1f3a', borderRadius: 12, padding: SPACING * 1.5, marginHorizontal: SPACING, alignItems: 'center' },
-  updateTitle: { fontSize: 18, fontWeight: '700', color: '#fff', marginBottom: 8 },
-  updateDescription: { fontSize: 13, fontWeight: '400', color: '#d0d8e0', textAlign: 'center', marginBottom: 16 },
-  updateSkip: { fontSize: 14, fontWeight: '600', color: '#7a8096', marginTop: 12 },
-  authBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
-  authModal: { backgroundColor: '#1a1f3a', borderTopLeftRadius: 12, borderTopRightRadius: 12, padding: SPACING * 1.5, paddingTop: 20 },
-  authCloseButton: { position: 'absolute', top: 12, right: 12, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center' },
-  authCloseText: { fontSize: 20, fontWeight: '700', color: '#fff' },
-  authTitle: { fontSize: 20, fontWeight: '700', color: '#fff', marginBottom: 16 },
-  accountName: { fontSize: 16, fontWeight: '600', color: '#fff', marginBottom: 4 },
-  accountEmail: { fontSize: 13, color: '#7a8096', marginBottom: 16 },
-  authInput: { backgroundColor: '#0a0e27', borderWidth: 1, borderColor: '#2a2f45', borderRadius: 6, paddingHorizontal: 12, paddingVertical: 10, color: '#fff', fontSize: 14, marginBottom: 12 },
-  authError: { fontSize: 12, fontWeight: '500', color: '#ff6b6b', marginBottom: 12 },
-  authSwitch: { fontSize: 13, fontWeight: '600', color: '#e50914', textAlign: 'center', marginTop: 12 },
-  centerContent: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
-  errorText: { fontSize: 14, color: '#ff6b6b', textAlign: 'center' },
-  emptyText: { fontSize: 14, color: '#7a8096', textAlign: 'center' },
-  playerScreen: { flex: 1, backgroundColor: '#000' },
-  playerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING, paddingVertical: 10, backgroundColor: 'rgba(0,0,0,0.8)' },
-  playerCloseButton: { paddingVertical: 6, paddingHorizontal: 12 },
-  playerCloseText: { fontSize: 14, fontWeight: '600', color: '#fff' },
-  playerHeaderTitle: { flex: 1, fontSize: 14, fontWeight: '600', color: '#fff', textAlign: 'center' },
-  playerHeaderSpacer: { width: 60 },
-  playerSourceButton: { paddingVertical: 6, paddingHorizontal: 12, backgroundColor: 'rgba(229,9,20,0.8)', borderRadius: 4 },
-  playerSourceText: { fontSize: 12, fontWeight: '600', color: '#fff' },
-  playerStage: { flex: 1, backgroundColor: '#000' },
-  webPlayer: { flex: 1 },
-  nativeVideo: { flex: 1 },
-  playerLoading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  playerMessage: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  playerMessageTitle: { fontSize: 16, fontWeight: '700', color: '#fff', marginBottom: 8 },
-  playerMessageText: { fontSize: 13, color: '#bbb', textAlign: 'center' },
-  playerErrorOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center', padding: SPACING },
-  playerFooter: { paddingHorizontal: SPACING, paddingVertical: 12, backgroundColor: 'rgba(0,0,0,0.6)' },
-  playerFooterTitle: { fontSize: 14, fontWeight: '600', color: '#fff', marginBottom: 4 },
-  playerFooterDescription: { fontSize: 12, color: '#bbb', lineHeight: 16 },
+  episodeTitle: { fontSize: 12, fontWeight: '600', color: '#fff', marginBottom: 4 },
+  episodeDesc: { fontSize: 11, color: Colors.muted, marginBottom: 4 },
+  episodeDur: { fontSize: 10, color: '#666' },
+
+  similarSection: { paddingHorizontal: 12, paddingVertical: 20 },
+  similarGrid: { display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  similarCard: { width: '28%', aspectRatio: 2/3, borderRadius: 6, backgroundColor: Colors.bg3 },
+  similarTitle: { fontSize: 11, color: '#ccc', marginTop: 4 },
+
+  trailerBackdrop: { position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 12 },
+  trailerBox: { position: 'relative', width: '100%', maxHeight: 400, backgroundColor: Colors.bg2, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border },
+  trailerClose: { position: 'absolute', top: 10, right: 10, width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', zIndex: 10 },
+  trailerCloseText: { color: '#fff', fontSize: 18, fontWeight: '600' },
+  trailerIframe: { width: '100%', aspectRatio: 16/9, backgroundColor: '#000' },
+  webview: { width: '100%', height: '100%' },
+  video: { width: '100%', height: '100%' },
+
+  playerContainer: { flex: 1, backgroundColor: '#000' },
+  playerClose: { position: 'absolute', top: 12, left: 12, backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 4, zIndex: 10 },
+  playerCloseText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  noSource: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' },
+  noSourceText: { color: '#888', fontSize: 14 },
+
+  emptyState: { justifyContent: 'center', alignItems: 'center', paddingVertical: 60 },
+  emptyStateText: { color: Colors.muted, fontSize: 14 },
   bottomPadding: { height: 20 },
+
+  authBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center' },
+  authClose: { position: 'absolute', top: 14, right: 14, width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  authCloseText: { color: '#bbb', fontSize: 16, fontWeight: '600' },
+  authForm: { width: '90%', maxWidth: 360, backgroundColor: Colors.bg2, borderRadius: 8, paddingHorizontal: 20, paddingVertical: 24, borderWidth: 1, borderColor: Colors.border },
+  authTitle: { fontSize: 20, fontWeight: '700', color: '#fff', marginBottom: 16 },
+  accountName: { fontSize: 14, fontWeight: '600', color: '#fff', marginBottom: 6 },
+  accountEmail: { fontSize: 12, color: Colors.muted, marginBottom: 20 },
+  authInput: { width: '100%', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 6, backgroundColor: Colors.bg3, borderWidth: 1, borderColor: Colors.border, color: '#fff', fontSize: 13, marginBottom: 12 },
+  authError: { color: '#ff6b6b', fontSize: 12, marginBottom: 12, backgroundColor: 'rgba(229,9,20,0.1)', padding: 8, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(229,9,20,0.3)' },
+  authSubmitBtn: { width: '100%', paddingVertical: 12, borderRadius: 6, backgroundColor: Colors.accent, justifyContent: 'center', alignItems: 'center', marginTop: 4 },
+  authSubmitText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  authSwitch: { width: '100%', marginTop: 16, color: Colors.accent, fontSize: 12, textAlign: 'center' },
+  signOutBtn: { width: '100%', paddingVertical: 10, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(229,9,20,0.3)', justifyContent: 'center', alignItems: 'center', marginTop: 8 },
+  signOutText: { color: '#ff8585', fontSize: 12, fontWeight: '600' },
 });
+
+export default App;
