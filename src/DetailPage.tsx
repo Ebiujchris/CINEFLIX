@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { flushSync } from 'react-dom'
 import {
   Play, Plus, Check, Star, X,
   Tv, Film, Calendar, Clock, User, Tag
@@ -129,7 +130,7 @@ export default function DetailPage({ item, allContent, myList, onToggleList, onB
 
           {/* action buttons */}
           <div className="detail-actions">
-            <button className="btn-play-big" onClick={() => { if (!localStorage.getItem('cf_user_token')) { onRequireAccount() } else { setActiveEpisode(null); setShowPlayer(true) } }}>
+            <button className="btn-play-big" onClick={() => { if (!localStorage.getItem('cf_user_token')) { flushSync(() => onRequireAccount()) } else { setActiveEpisode(null); setShowPlayer(true) } }}>
               <Play size={18} fill="currentColor" /> Play {item.type === 'series' ? 'Series' : 'Now'}
             </button>
             {item.trailerUrl && (
@@ -169,7 +170,7 @@ export default function DetailPage({ item, allContent, myList, onToggleList, onB
                       className="ep-card"
                       onClick={() => {
                         if (!localStorage.getItem('cf_user_token')) {
-                          onRequireAccount()
+                          flushSync(() => onRequireAccount())
                           return
                         }
                         setActiveEpisode({

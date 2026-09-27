@@ -1,5 +1,6 @@
 import { useMemo, useState, useRef, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
+import { flushSync } from 'react-dom'
 import {
   ChevronLeft, ChevronRight, ChevronDown, Clapperboard,
   Film, Heart, Info, Menu, Play, Search, Star, Home, UserRound,
@@ -195,7 +196,7 @@ function HeroBanner({ items, onPlay, onInfo, onTrailer, onRequireAccount }: {
         </div>
         <p className="hero-desc">{item.description}</p>
         <div className="hero-actions">
-          <button className="btn-primary" onClick={() => { if (!localStorage.getItem('cf_user_token')) { onRequireAccount() } else { onPlay(item) } }}>
+          <button className="btn-primary" onClick={() => { if (!localStorage.getItem('cf_user_token')) { flushSync(() => onRequireAccount()) } else { onPlay(item) } }}>
             <Play size={16} fill="currentColor" />
             {getResume(item.id) > 0 ? 'Resume' : 'Play'}
           </button>
