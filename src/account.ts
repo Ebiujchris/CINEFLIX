@@ -44,3 +44,11 @@ export async function saveProgress(contentId: string, position: number, duration
   return request('/api/users/me/progress', { method: 'PUT', body: JSON.stringify({ contentId, episodeId, position, duration }) })
 }
 export async function removeProgress(contentId: string) { return request(`/api/users/me/progress/${contentId}`, { method: 'DELETE' }) }
+
+export async function getSubscription() { return request('/api/subscriptions/current') as Promise<{ id: string; status: string; expiryDate: string | null; isActive: boolean; daysUntilExpiry: number | null }> }
+export async function initializePayment(phoneNumber: string, provider = 'MTN') {
+  return request('/api/subscriptions/initialize-payment', { method: 'POST', body: JSON.stringify({ phoneNumber, provider }) })
+}
+export async function confirmPayment(paymentId: string, transactionId: string) {
+  return request('/api/subscriptions/confirm-payment', { method: 'POST', body: JSON.stringify({ paymentId, transactionId }) })
+}

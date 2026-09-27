@@ -7,6 +7,7 @@ import type { Content } from './data'
 import { toYouTubeEmbedUrl, withAutoplay } from './videoUrls'
 import Player from './Player'
 import EpisodeRail from './EpisodeRail'
+import SubscriptionGate from './SubscriptionGate'
 
 type Props = {
   item: Content
@@ -25,10 +26,36 @@ export default function DetailPage({ item, allContent, myList, onToggleList, onB
   const [showTrailer, setShowTrailer] = useState(false)
   const [activeEpisode, setActiveEpisode] = useState<Content | null>(null)
   const [activeSeason, setActiveSeason] = useState(item.seasonsData?.[0]?.seasonNumber || 1)
+  const [showSubscription, setShowSubscription] = useState(false)
   const inList = myList.includes(item.id)
 
   const itemGenres = item.genre.split(',').map(genre => genre.trim())
   const similar = allContent.filter(c => c.id !== item.id && c.genre.split(',').some(genre => itemGenres.includes(genre.trim()))).slice(0, 8)
+
+  const handlePlayClick = () => {
+    if (!localStorage.getItem('cf_user_token')) {
+      onRequireAccount()
+      return
+    }
+    setShowSubscription(true)
+  }
+
+  const playEpisode = (episode: any) => {
+    setActiveEpisode({
+      ...item,
+      id: episode.id,
+      title: `${item.title} — E${episode.episodeNumber}: ${episode.title}`,
+      description: episode.description,
+      longDescription: episode.description,
+      image: episode.thumbnailUrl || item.image,
+      backdrop: item.backdrop,
+      duration: episode.duration || '',
+      provider: episode.provider,
+      embedUrl: episode.embedUrl,
+      playbackUrl: episode.playbackUrl,
+    })
+    setShowPlayer(true)
+  }
 
   if (showPlayer) {
     const playingItem = activeEpisode || item
@@ -129,7 +156,7 @@ export default function DetailPage({ item, allContent, myList, onToggleList, onB
 
           {/* action buttons */}
           <div className="detail-actions">
-            <button className="btn-play-big" onClick={() => { if (!localStorage.getItem('cf_user_token')) { onRequireAccount() } else { setActiveEpisode(null); setShowPlayer(true) } }}>
+            <button className="btn-play-big" onClick={handlePlayClick}>
               <Play size={18} fill="currentColor" /> Play {item.type === 'series' ? 'Series' : 'Now'}
             </button>
             {item.trailerUrl && (
@@ -172,20 +199,7 @@ export default function DetailPage({ item, allContent, myList, onToggleList, onB
                           onRequireAccount()
                           return
                         }
-                        setActiveEpisode({
-                          ...item,
-                          id:              episode.id,
-                          title:           `${item.title} — E${episode.episodeNumber}: ${episode.title}`,
-                          description:     episode.description,
-                          longDescription: episode.description,
-                          image:           episode.thumbnailUrl || item.image,
-                          backdrop:        item.backdrop,
-                          duration:        episode.duration || '',
-                          provider:        episode.provider,
-                          embedUrl:        episode.embedUrl,
-                          playbackUrl:     episode.playbackUrl,
-                        })
-                        setShowPlayer(true)
+                        playEpisode(episode)
                       }}
                       aria-label={`Play episode ${episode.episodeNumber}`}
                     >
@@ -285,6 +299,14 @@ export default function DetailPage({ item, allContent, myList, onToggleList, onB
             />
           </div>
         </div>
+      )}
+
+      {/* Subscription Gate */}
+      {showSubscription && (
+        <SubscriptionGate
+          onSubscribed={() => { setShowSubscription(false); setShowPlayer(true) }}
+          onClose={() => setShowSubscription(false)}
+        />
       )}
     </div>
   )
