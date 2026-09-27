@@ -45,7 +45,7 @@ export async function saveProgress(contentId: string, position: number, duration
 }
 export async function removeProgress(contentId: string) { return request(`/api/users/me/progress/${contentId}`, { method: 'DELETE' }) }
 
-export async function getSubscription() { return request('/api/subscriptions/current') as Promise<{ id: string; status: string; expiryDate: string | null; isActive: boolean; daysUntilExpiry: number | null }> }
+export async function getSubscription() { return request('/api/subscriptions/current') as Promise<{ id: string; status: string; price: number; expiryDate: string | null; isActive: boolean; daysUntilExpiry: number | null }> }
 export async function initializePayment(phoneNumber: string, provider = 'MTN') {
   return request('/api/subscriptions/initialize-payment', { method: 'POST', body: JSON.stringify({ phoneNumber, provider }) })
 }
