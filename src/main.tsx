@@ -159,8 +159,8 @@ function Row({ title, items, onSelect, icon }: {
 }
 
 // ── Rotating Hero Banner ──────────────────────────────────────
-function HeroBanner({ items, onPlay, onInfo, onTrailer }: {
-  items: Content[]; onPlay: (m: Content) => void; onInfo: (m: Content) => void; onTrailer: (m: Content) => void
+function HeroBanner({ items, onPlay, onInfo, onTrailer, onRequireAccount }: {
+  items: Content[]; onPlay: (m: Content) => void; onInfo: (m: Content) => void; onTrailer: (m: Content) => void; onRequireAccount: () => void
 }) {
   const [idx, setIdx] = useState(0)
   const [fade, setFade] = useState(true)
@@ -195,7 +195,7 @@ function HeroBanner({ items, onPlay, onInfo, onTrailer }: {
         </div>
         <p className="hero-desc">{item.description}</p>
         <div className="hero-actions">
-          <button className="btn-primary" onClick={() => onPlay(item)}>
+          <button className="btn-primary" onClick={() => { if (!localStorage.getItem('cf_user_token')) { onRequireAccount() } else { onPlay(item) } }}>
             <Play size={16} fill="currentColor" />
             {getResume(item.id) > 0 ? 'Resume' : 'Play'}
           </button>
@@ -524,7 +524,7 @@ function App() {
         )}
         {searchVal.length <= 1 && page === 'home' && !contentLoading && ALL_CONTENT.length > 0 && (
           <>
-            <HeroBanner items={latestFirst(ALL_CONTENT).slice(0, 8)} onPlay={openPlayer} onInfo={openDetail} onTrailer={setHeroTrailer} />
+            <HeroBanner items={latestFirst(ALL_CONTENT).slice(0, 8)} onPlay={openPlayer} onInfo={openDetail} onTrailer={setHeroTrailer} onRequireAccount={() => setAccountOpen(true)} />
             <div className="rows-area">
 
               {/* Active genre banner */}
