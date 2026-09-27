@@ -1275,3 +1275,19 @@ footer p { margin: 0; }
   .subscription-header h2 { font-size: 22px; }
   .price-amount { font-size: 32px; }
 }
+
+.sub-info-box {
+  padding: 20px; margin: 16px 0;
+  background: rgba(16,185,129,.08); border: 1px solid rgba(16,185,129,.2);
+  border-radius: 8px; display: grid; gap: 16px;
+}
+.sub-info-item {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+}
+.sub-label { color: var(--muted); font-size: 12px; font-weight: 600; min-width: 80px; }
+.sub-value { color: #ccc; font-size: 13px; flex: 1; text-align: right; }
+.sub-status-active {
+  display: inline-block; padding: 6px 12px; border-radius: 4px;
+  font: 600 11px 'Space Grotesk'; text-transform: uppercase; letter-spacing: 0.5px;
+  background: rgba(16,185,129,.15); color: #4ade80;
+}

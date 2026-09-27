@@ -1,6 +1,15 @@
-import { useState, useEffect } from 'react'
-import { AlertCircle, X, Phone, CheckCircle } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { AlertCircle, X, Phone, CheckCircle, Clock } from 'lucide-react'
 import { getSubscription, initializePayment, confirmPayment } from './account'
+
+type Subscription = {
+  id: string
+  status: string
+  isActive: boolean
+  expiryDate: string | null
+  daysUntilExpiry: number | null
+  price: number
+}
 
 type Props = {
   onSubscribed: () => void
@@ -8,8 +17,8 @@ type Props = {
 }
 
 export default function SubscriptionGate({ onSubscribed, onClose }: Props) {
-  const [step, setStep] = useState<'check' | 'buy' | 'phone' | 'confirm'>('check')
-  const [subscription, setSubscription] = useState<any>(null)
+  const [step, setStep] = useState<'check' | 'active' | 'buy' | 'phone' | 'confirm'>('check')
+  const [subscription, setSubscription] = useState<Subscription | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
@@ -26,7 +35,7 @@ export default function SubscriptionGate({ onSubscribed, onClose }: Props) {
       const sub = await getSubscription()
       setSubscription(sub)
       if (sub.isActive) {
-        onSubscribed()
+        setStep('active')
         return
       }
       setStep('buy')
@@ -72,6 +81,11 @@ export default function SubscriptionGate({ onSubscribed, onClose }: Props) {
     }
   }
 
+  const formatDate = (date: string | null) => {
+    if (!date) return 'Never'
+    return new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+  }
+
   return (
     <div className="subscription-gate-backdrop" onClick={onClose} role="presentation">
       <section className="subscription-gate-modal" onClick={(e) => e.stopPropagation()}>
@@ -84,6 +98,43 @@ export default function SubscriptionGate({ onSubscribed, onClose }: Props) {
             <div className="loading-spinner" />
             <p>Checking subscription...</p>
           </div>
+        )}
+
+        {step === 'active' && subscription?.isActive && (
+          <>
+            <div className="subscription-header">
+              <CheckCircle size={48} color="#4ade80" />
+              <h2>Subscription Active</h2>
+              <p>You're all set to watch!</p>
+            </div>
+
+            <div className="sub-info-box">
+              <div className="sub-info-item">
+                <span className="sub-label">Status</span>
+                <span className="sub-status-active">ACTIVE</span>
+              </div>
+              <div className="sub-info-item">
+                <span className="sub-label">Price</span>
+                <span className="sub-value">{subscription.price.toLocaleString()} UGX/month</span>
+              </div>
+              <div className="sub-info-item">
+                <span className="sub-label">Expiry</span>
+                <span className="sub-value">
+                  <Clock size={13} style={{ display: 'inline', marginRight: '6px' }} />
+                  {formatDate(subscription.expiryDate)}
+                  {subscription.daysUntilExpiry !== null && (
+                    <span style={{ color: '#999', marginLeft: '8px' }}>
+                      ({subscription.daysUntilExpiry} days remaining)
+                    </span>
+                  )}
+                </span>
+              </div>
+            </div>
+
+            <button className="btn-subscribe" onClick={onSubscribed}>
+              Continue Watching
+            </button>
+          </>
         )}
 
         {step === 'buy' && !loading && (
