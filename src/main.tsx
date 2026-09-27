@@ -196,7 +196,7 @@ function HeroBanner({ items, onPlay, onInfo, onTrailer, onRequireAccount }: {
         </div>
         <p className="hero-desc">{item.description}</p>
         <div className="hero-actions">
-          <button className="btn-primary" onClick={() => { if (!localStorage.getItem('cf_user_token')) { flushSync(() => onRequireAccount()) } else { onPlay(item) } }}>
+          <button className="btn-primary" onClick={() => { if (!localStorage.getItem('cf_user_token')) { onRequireAccount() } else { onPlay(item) } }}>
             <Play size={16} fill="currentColor" />
             {getResume(item.id) > 0 ? 'Resume' : 'Play'}
           </button>
@@ -420,7 +420,7 @@ function App() {
         onBack={() => setDetailItem(null)}
         onSelect={openDetail}
           onNavigate={(p) => { setDetailItem(null); navigate(p as Page) }}
-          onRequireAccount={() => setAccountOpen(true)}
+          onRequireAccount={() => flushSync(() => setAccountOpen(true))}
           onProgress={(playingItem, position, duration) => syncProgress(playingItem, position, duration, detailItem.id)}
       />
     )
@@ -525,7 +525,7 @@ function App() {
         )}
         {searchVal.length <= 1 && page === 'home' && !contentLoading && ALL_CONTENT.length > 0 && (
           <>
-            <HeroBanner items={latestFirst(ALL_CONTENT).slice(0, 8)} onPlay={openPlayer} onInfo={openDetail} onTrailer={setHeroTrailer} onRequireAccount={() => setAccountOpen(true)} />
+            <HeroBanner items={latestFirst(ALL_CONTENT).slice(0, 8)} onPlay={openPlayer} onInfo={openDetail} onTrailer={setHeroTrailer} onRequireAccount={() => flushSync(() => setAccountOpen(true))} />
             <div className="rows-area">
 
               {/* Active genre banner */}
