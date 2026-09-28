@@ -11,8 +11,9 @@ import { useContent } from './useContent'
 import DetailPage from './DetailPage'
 import Player from './Player'
 import AccountDialog from './AccountDialog'
-import { addToWatchlist, clearAccount, getAccount, getLibrary, removeFromWatchlist, saveProgress, type AccountUser } from './account'
+import { addToWatchlist, clearAccount, getAccount, getLibrary, getSubscription, removeFromWatchlist, saveProgress, type AccountUser } from './account'
 import { getRecommendations, getTrending, getBecauseYouWatched } from './recommendations'
+import SubscriptionPaywall from './SubscriptionPaywall'
 import './styles.css'
 
 // ── URL hash routing helpers ──────────────────────────────────
@@ -197,7 +198,14 @@ function HeroBanner({ items, onPlay, onInfo, onTrailer, onRequireAccount }: {
         </div>
         <p className="hero-desc">{item.description}</p>
         <div className="hero-actions">
-          <button className="btn-primary" onClick={() => { if (!localStorage.getItem('cf_user_token')) { onRequireAccount() } else { onPlay(item) } }}>
+          <button className="btn-primary" onClick={() => {
+            const token = localStorage.getItem('cf_user_token')
+            if (!token) {
+              onRequireAccount()
+              return
+            }
+            onPlay(item)
+          }}>
             <Play size={16} fill="currentColor" />
             {getResume(item.id) > 0 ? 'Resume' : 'Play'}
           </button>
@@ -245,6 +253,7 @@ function App() {
   const [heroTrailer, setHeroTrailer] = useState<Content | null>(null)
   const [account, setAccount] = useState<AccountUser | null>(() => getAccount())
   const [accountOpen, setAccountOpen] = useState(false)
+  const [pendingPaywallItem, setPendingPaywallItem] = useState<Content | null>(null)
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const progressSync = useRef<Record<string, number>>({})
 
@@ -367,6 +376,7 @@ function App() {
     setHash('detail', item.id)
     document.title = `${item.title} — Cineflix`
   }
+
   const openPlayer = (item: Content) => {
     setPlayerItem(item)
     if (item.provider === 'EXTERNAL_EMBED' && getResume(item.id) < 1) {
@@ -375,6 +385,25 @@ function App() {
       forceUpdate(n => n + 1)
     }
     document.title = `▶ ${item.title} — Cineflix`
+  }
+
+  const openPlayerWithGate = async (item: Content) => {
+    const token = localStorage.getItem('cf_user_token')
+    if (!token) {
+      setAccountOpen(true)
+      return
+    }
+
+    try {
+      const subscription = await getSubscription()
+      if (subscription?.isActive) {
+        openPlayer(item)
+        return
+      }
+      setPendingPaywallItem(item)
+    } catch {
+      setPendingPaywallItem(item)
+    }
   }
 
   // reset title when back on main shell
@@ -407,6 +436,11 @@ function App() {
     [searchVal, ALL_CONTENT]
   )
 
+  const handlePaywallSuccess = (item: Content) => {
+    setPendingPaywallItem(null)
+    openPlayer(item)
+  }
+
   // full-screen player
   if (playerItem) return <Player item={playerItem} onClose={() => setPlayerItem(null)} onProgress={(position, duration) => syncProgress(playerItem, position, duration)} />
 
@@ -428,7 +462,16 @@ function App() {
   }
 
   return (
-    <div className="shell">
+    <>
+      {pendingPaywallItem && (
+        <SubscriptionPaywall
+          itemTitle={pendingPaywallItem.title}
+          onClose={() => setPendingPaywallItem(null)}
+          onSuccess={() => handlePaywallSuccess(pendingPaywallItem)}
+        />
+      )}
+
+      <div className="shell">
 
       {/* ── NAVBAR ── */}
       <header className="navbar">
@@ -526,7 +569,7 @@ function App() {
         )}
         {searchVal.length <= 1 && page === 'home' && !contentLoading && ALL_CONTENT.length > 0 && (
           <>
-            <HeroBanner items={latestFirst(ALL_CONTENT).slice(0, 8)} onPlay={openPlayer} onInfo={openDetail} onTrailer={setHeroTrailer} onRequireAccount={() => flushSync(() => setAccountOpen(true))} />
+            <HeroBanner items={latestFirst(ALL_CONTENT).slice(0, 8)} onPlay={openPlayerWithGate} onInfo={openDetail} onTrailer={setHeroTrailer} onRequireAccount={() => flushSync(() => setAccountOpen(true))} />
             <div className="rows-area">
 
               {/* Active genre banner */}
