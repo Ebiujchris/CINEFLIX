@@ -1,13 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Play, Plus, Check, Star, X,
   Tv, Film, Calendar, Clock, User, Tag
 } from 'lucide-react'
 import type { Content } from './data'
 import { toYouTubeEmbedUrl, withAutoplay } from './videoUrls'
+import { getSubscription } from './account'
 import Player from './Player'
 import EpisodeRail from './EpisodeRail'
-import SubscriptionGate from './SubscriptionGate'
+import SubscriptionPaywall from './SubscriptionPaywall'
 
 type Props = {
   item: Content
@@ -26,35 +27,92 @@ export default function DetailPage({ item, allContent, myList, onToggleList, onB
   const [showTrailer, setShowTrailer] = useState(false)
   const [activeEpisode, setActiveEpisode] = useState<Content | null>(null)
   const [activeSeason, setActiveSeason] = useState(item.seasonsData?.[0]?.seasonNumber || 1)
-  const [showSubscription, setShowSubscription] = useState(false)
+  const [showPaywall, setShowPaywall] = useState(false)
+  const [hasActiveSubscription, setHasActiveSubscription] = useState(false)
   const inList = myList.includes(item.id)
 
   const itemGenres = item.genre.split(',').map(genre => genre.trim())
   const similar = allContent.filter(c => c.id !== item.id && c.genre.split(',').some(genre => itemGenres.includes(genre.trim()))).slice(0, 8)
+
+  // Check subscription status on mount
+  useEffect(() => {
+    const checkSubscription = async () => {
+      const token = localStorage.getItem('cf_user_token')
+      if (!token) return
+
+      try {
+        const subscription = await getSubscription()
+        setHasActiveSubscription(subscription.isActive)
+      } catch {
+        setHasActiveSubscription(false)
+      }
+    }
+
+    checkSubscription()
+  }, [])
 
   const handlePlayClick = () => {
     if (!localStorage.getItem('cf_user_token')) {
       onRequireAccount()
       return
     }
-    setShowSubscription(true)
+    
+    // If user has active subscription, play directly
+    if (hasActiveSubscription) {
+      setShowPlayer(true)
+      return
+    }
+    
+    // Otherwise show paywall to purchase
+    setShowPaywall(true)
+  }
+
+  const handlePaywallSuccess = () => {
+    // After successful payment, start playback
+    setShowPaywall(false)
+    setHasActiveSubscription(true)
+    setShowPlayer(true)
   }
 
   const playEpisode = (episode: any) => {
-    setActiveEpisode({
-      ...item,
-      id: episode.id,
-      title: `${item.title} — E${episode.episodeNumber}: ${episode.title}`,
-      description: episode.description,
-      longDescription: episode.description,
-      image: episode.thumbnailUrl || item.image,
-      backdrop: item.backdrop,
-      duration: episode.duration || '',
-      provider: episode.provider,
-      embedUrl: episode.embedUrl,
-      playbackUrl: episode.playbackUrl,
-    })
-    setShowPlayer(true)
+    if (!localStorage.getItem('cf_user_token')) {
+      onRequireAccount()
+      return
+    }
+    
+    // Show paywall if no active subscription
+    if (!hasActiveSubscription) {
+      setActiveEpisode({
+        ...item,
+        id: episode.id,
+        title: `${item.title} — E${episode.episodeNumber}: ${episode.title}`,
+        description: episode.description,
+        longDescription: episode.description,
+        image: episode.thumbnailUrl || item.image,
+        backdrop: item.backdrop,
+        duration: episode.duration || '',
+        provider: episode.provider,
+        embedUrl: episode.embedUrl,
+        playbackUrl: episode.playbackUrl,
+      })
+      setShowPaywall(true)
+    } else {
+      // User has subscription, play directly
+      setActiveEpisode({
+        ...item,
+        id: episode.id,
+        title: `${item.title} — E${episode.episodeNumber}: ${episode.title}`,
+        description: episode.description,
+        longDescription: episode.description,
+        image: episode.thumbnailUrl || item.image,
+        backdrop: item.backdrop,
+        duration: episode.duration || '',
+        provider: episode.provider,
+        embedUrl: episode.embedUrl,
+        playbackUrl: episode.playbackUrl,
+      })
+      setShowPlayer(true)
+    }
   }
 
   if (showPlayer) {
@@ -301,11 +359,12 @@ export default function DetailPage({ item, allContent, myList, onToggleList, onB
         </div>
       )}
 
-      {/* Subscription Gate */}
-      {showSubscription && (
-        <SubscriptionGate
-          onSubscribed={() => { setShowSubscription(false); setShowPlayer(true) }}
-          onClose={() => setShowSubscription(false)}
+      {/* Subscription Paywall */}
+      {showPaywall && (
+        <SubscriptionPaywall
+          itemTitle={item.title}
+          onClose={() => setShowPaywall(false)}
+          onSuccess={handlePaywallSuccess}
         />
       )}
     </div>

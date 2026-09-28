@@ -12,6 +12,7 @@ import DetailPage from './DetailPage'
 import Player from './Player'
 import AccountDialog from './AccountDialog'
 import { addToWatchlist, clearAccount, getAccount, getLibrary, removeFromWatchlist, saveProgress, type AccountUser } from './account'
+import { getRecommendations, getTrending, getBecauseYouWatched } from './recommendations'
 import './styles.css'
 
 // ── URL hash routing helpers ──────────────────────────────────
@@ -553,6 +554,27 @@ function App() {
                     <p className="continue-watching-empty">Start a movie or series and it will appear here.</p>
                   )}
                 </div>
+
+              {/* Personalized Recommendations */}
+              {account && myList.length > 0 && (() => {
+                const recommendations = getRecommendations(ALL_CONTENT, myList, 12)
+                return recommendations.length > 0 ? (
+                  <Row title="Recommended For You" icon={<Star size={16} />} items={recommendations} onSelect={openDetail} />
+                ) : null
+              })()}
+
+              {/* Because You Watched - Show the first watched item's recommendations */}
+              {account && myList.length > 0 && (() => {
+                const watchedItemId = myList[0]
+                const watchedItem = ALL_CONTENT.find(c => c.id === watchedItemId)
+                if (watchedItem) {
+                  const becauseRecs = getBecauseYouWatched(watchedItem, ALL_CONTENT, 8)
+                  return becauseRecs.items.length > 0 ? (
+                    <Row title={`Because You Watched "${watchedItem.title}"`} icon={<Heart size={16} />} items={becauseRecs.items} onSelect={openDetail} />
+                  ) : null
+                }
+                return null
+              })()}
 
               <Row title={activeGenre ? `Trending — ${activeGenre}` : 'Trending Now'} icon={<TrendingUp size={16} />} items={filteredAll.slice(0, 10)} onSelect={openDetail} />
 
