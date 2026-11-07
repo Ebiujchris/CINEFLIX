@@ -1,7 +1,7 @@
 # CINEFLIX Subscription System Implementation
 
 ## Overview
-Complete subscription system implemented with 10,000 UGX monthly subscription plan, automatic activation after payment, 3-day expiry reminders, and admin manual activation fallback.
+Subscription framework with a 10,000 UGX monthly plan, an expiry-triggered renewal prompt, and admin subscription controls. MTN/Airtel payment selection is prepared in the UI, but live payment processing and automatic activation are intentionally disabled until a payment provider is selected and configured.
 
 ---
 
@@ -53,12 +53,12 @@ model Payment {
   
 - **POST /initialize-payment** - Start payment process
   - Body: `{ phoneNumber, provider }`
-  - Returns: payment reference for user to complete payment
-  
+  - Accepts MTN or AIRTEL and a Uganda mobile-money number
+  - Returns `503` until a payment provider is configured; no payment is started
+
 - **POST /confirm-payment** - Verify and activate subscription
-  - Body: `{ paymentId, transactionId }`
-  - Auto-sets expiry to 30 days from now
-  - Returns: activated subscription data
+  - Returns `501` until provider-backed verification is implemented
+  - Never activates a subscription from a user-entered transaction reference
 
 - **POST /check-expiry** - Check for subscriptions expiring in 3 days
   - Called by cron job
@@ -96,11 +96,11 @@ model Payment {
 ### New Components
 
 #### SubscriptionGate (`src/SubscriptionGate.tsx`)
-Modal component with multi-step payment flow:
+Modal component with a renewal and mobile-money setup flow:
 1. **Check Step**: Verifies existing subscription
 2. **Buy Step**: Shows plan details (10,000 UGX/month)
-3. **Phone Step**: Collects Uganda phone number
-4. **Confirm Step**: Asks for MTN transaction ID
+3. **Mobile Money Step**: Offers MTN or Airtel and collects the wallet number
+4. **Payment Setup**: Explains that no charge can be made until a provider is configured
 
 Features:
 - Price breakdown and features list
@@ -112,8 +112,7 @@ Features:
 New API methods:
 ```typescript
 getSubscription() // Returns current subscription
-initializePayment(phoneNumber, provider) // Start payment
-confirmPayment(paymentId, transactionId) // Activate subscription
+initializePayment(phoneNumber, provider) // Requests payment; currently unavailable until a provider is connected
 ```
 
 ### DetailPage Integration (`src/DetailPage.tsx`)
@@ -121,6 +120,11 @@ confirmPayment(paymentId, transactionId) // Activate subscription
 - Shows subscription gate if not subscribed
 - Episode cards also require subscription
 - Users can still view details without subscription
+
+### Expiry Prompt (`src/main.tsx`)
+- Checks signed-in users' subscription status on app load
+- Opens the renewal prompt when an existing subscription is expired
+- Closes playback when the current subscription expires during a session
 
 ### Styling (`src/styles.css`)
 Complete subscription UI styles:
@@ -135,20 +139,17 @@ Complete subscription UI styles:
 ## How It Works
 
 ### User Subscription Flow
-1. **User clicks Play** without active subscription
+1. **User clicks Play** without an active subscription, or an active subscription expires
 2. **Login Check**: If not logged in, redirect to login
-3. **Subscription Check**: If logged in, show SubscriptionGate
-4. **Enter Phone**: User enters Uganda phone number
-5. **Payment Initiation**: System creates payment record and sends USSD prompt
-6. **User Pays**: User completes MTN payment
-7. **Transaction Confirmation**: User enters transaction ID
-8. **Auto-Activation**: Subscription activated, 30-day expiry set
-9. **Access Granted**: User can now play content
+3. **Subscription Check**: If logged in and expired, show the renewal prompt
+4. **Choose Wallet**: User selects MTN or Airtel and enters their Uganda phone number
+5. **Provider Not Configured**: The API explains that no payment was made; the UI does not claim success
 
 ### Automatic Features
+- **Expiry Prompt**: The app checks subscription status at sign-in and prompts when an existing subscription has expired
 - **3-Day Reminders**: Cron job runs `/api/subscriptions/check-expiry` to send reminders
 - **Auto-Expiry**: Cron job runs `/api/subscriptions/expire-old` to expire old subscriptions
-- **Admin Fallback**: If auto-activation fails, admin can manually activate from dashboard
+- **Admin Controls**: Admin can manually activate or extend subscriptions
 
 ---
 
@@ -190,8 +191,10 @@ Add these to your cron scheduler (e.g., Vercel Cron, AWS Lambda, etc.):
 - [ ] Login prompts on play attempt (unauth)
 - [ ] Subscription gate shows on play (auth, no subscription)
 - [ ] Phone number validation works
-- [ ] Payment initialization creates record
-- [ ] Payment confirmation updates subscription status
+- [ ] Expired subscription opens renewal prompt
+- [ ] MTN and Airtel can be selected and phone numbers are validated
+- [ ] Payment endpoints remain unavailable until a provider is configured
+- [ ] Verified provider callback activates subscription for 30 days
 - [ ] Subscription expiry tracking works
 - [ ] 3-day reminder email/SMS would send (mock)
 - [ ] Old subscriptions auto-expire
@@ -204,11 +207,12 @@ Add these to your cron scheduler (e.g., Vercel Cron, AWS Lambda, etc.):
 ## Next Steps
 
 ### Payment Integration
-Currently the system is ready for payment provider integration. To fully enable:
-1. Integrate MTN Mobile Money API for real payments
-2. Integrate Airtel Money API (optional)
-3. Add webhook handlers for payment callbacks
-4. Implement email/SMS notifications
+To enable charging and automatic activation:
+1. Select a gateway such as PesaPal or Flutterwave
+2. Configure gateway credentials as backend environment variables
+3. Implement its payment request and signed webhook verification
+4. Activate a subscription for 30 days only after the provider confirms the 10,000 UGX payment
+5. Add email/SMS notifications if desired
 
 ### Admin Dashboard UI
 Create admin dashboard pages:

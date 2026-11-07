@@ -10,6 +10,10 @@ The admin dashboard now has full subscription management capabilities accessible
 ### User Subscription Management
 Located in **Users Page** with a lightning bolt icon (⚡) next to each user:
 
+### Watch History
+- Expand the user's watch-history entry count to see their 20 most recently updated watch-progress entries
+- Shows movie/series title, completion or watch progress, playback position, and last update time
+
 #### View Subscription Status
 - Current subscription status (ACTIVE, EXPIRED, CANCELLED, PENDING_PAYMENT)
 - Monthly price (10,000 UGX)
