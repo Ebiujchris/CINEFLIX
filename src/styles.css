@@ -1246,13 +1246,13 @@ footer p { margin: 0; }
   display: flex; flex-direction: column; gap: 8px;
   font: 600 12px 'Space Grotesk'; color: #aaa;
 }
-.subscription-form input {
+.subscription-form input, .subscription-form select {
   padding: 12px 14px; border: 1px solid var(--border);
   background: var(--bg3); color: var(--text);
   border-radius: 6px; font-size: 14px;
   transition: border-color .2s;
 }
-.subscription-form input:focus { outline: none; border-color: var(--accent); }
+.subscription-form input:focus, .subscription-form select:focus { outline: none; border-color: var(--accent); }
 .subscription-form input:disabled { opacity: .6; cursor: wait; }
 
 .subscription-note {
@@ -1603,6 +1603,27 @@ footer p { margin: 0; }
 .phone-input-wrapper input {
   flex: 1; border: none; background: transparent;
   padding: 12px 12px; font-size: 14px;
+}
+
+.payment-provider-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.payment-provider-option {
+  display: flex; align-items: center; gap: 9px; min-height: 48px;
+  padding: 9px 11px; background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 12px; text-align: left;
+}
+.payment-provider-option:hover, .payment-provider-option.selected {
+  border-color: var(--accent); background: rgba(245,197,24,.06);
+}
+.provider-mark {
+  display: grid; place-items: center; width: 26px; height: 26px;
+  border-radius: 50%; color: #fff; font-weight: 700;
+}
+.provider-mark.mtn { background: #ffcc00; color: #171717; }
+.provider-mark.airtel { background: #e40000; }
+.payment-setup-notice {
+  padding: 12px; border: 1px solid rgba(245,197,24,.25);
+  border-radius: 8px; background: rgba(245,197,24,.06);
+  color: #d3c690; font-size: 12px; line-height: 1.5;
 }
 
 .payment-methods {

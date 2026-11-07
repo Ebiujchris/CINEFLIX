@@ -254,8 +254,54 @@ function App() {
   const [account, setAccount] = useState<AccountUser | null>(() => getAccount())
   const [accountOpen, setAccountOpen] = useState(false)
   const [pendingPaywallItem, setPendingPaywallItem] = useState<Content | null>(null)
+  const [renewalPrompt, setRenewalPrompt] = useState(false)
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const progressSync = useRef<Record<string, number>>({})
+
+  useEffect(() => {
+    if (!account) {
+      setRenewalPrompt(false)
+      return
+    }
+
+    let cancelled = false
+    let expiryTimer: number | undefined
+    const showRenewalPrompt = () => {
+      setRenewalPrompt(true)
+      setPlayerItem(null)
+      setDetailItem(null)
+    }
+
+    getSubscription().then(subscription => {
+      if (cancelled) return
+      if (!subscription.isActive) {
+        showRenewalPrompt()
+        return
+      }
+
+      if (subscription.expiryDate) {
+        const expiresAt = new Date(subscription.expiryDate).getTime()
+        const scheduleExpiryCheck = () => {
+          const delay = expiresAt - Date.now()
+          if (delay <= 0) {
+            showRenewalPrompt()
+          } else {
+            expiryTimer = window.setTimeout(scheduleExpiryCheck, Math.min(delay, 2_147_000_000))
+          }
+        }
+        scheduleExpiryCheck()
+      }
+    }).catch(error => {
+      if ((error as Error).message !== 'No subscription found') {
+        console.error('Unable to check subscription expiry', error)
+      }
+    })
+
+    return () => {
+      cancelled = true
+      if (expiryTimer !== undefined) window.clearTimeout(expiryTimer)
+    }
+  }, [account?.id])
 
   useEffect(() => {
     const handleInstallPrompt = (event: Event) => {
@@ -463,11 +509,15 @@ function App() {
 
   return (
     <>
-      {pendingPaywallItem && (
+      {(pendingPaywallItem || renewalPrompt) && (
         <SubscriptionPaywall
-          itemTitle={pendingPaywallItem.title}
-          onClose={() => setPendingPaywallItem(null)}
-          onSuccess={() => handlePaywallSuccess(pendingPaywallItem)}
+          itemTitle={pendingPaywallItem?.title || 'your subscription'}
+          renewal={!pendingPaywallItem}
+          onClose={() => { setPendingPaywallItem(null); setRenewalPrompt(false) }}
+          onSuccess={() => {
+            setRenewalPrompt(false)
+            if (pendingPaywallItem) handlePaywallSuccess(pendingPaywallItem)
+          }}
         />
       )}
 
@@ -774,7 +824,8 @@ function App() {
         />
       )}
     </div>
-  )
+  </>
+)
 }
 
 createRoot(document.getElementById('root')!).render(<App />)
