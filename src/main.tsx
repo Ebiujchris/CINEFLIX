@@ -1,8 +1,8 @@
 import { useMemo, useState, useRef, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import {
-  ChevronLeft, ChevronRight, ChevronDown, Clapperboard,
-  Film, Heart, Info, Menu, Play, Search, Star, Home, UserRound,
+  AlertCircle, ChevronLeft, ChevronRight, ChevronDown, Clapperboard,
+  Film, Heart, Info, Menu, Play, RefreshCw, Search, Star, Home, UserRound,
   TrendingUp, Tv, X, Clock, RotateCcw, Grid,
 } from 'lucide-react'
 import { MOVIE_GENRES, SERIES_GENRES, type Content } from './data'
@@ -226,7 +226,7 @@ type SortMode = 'latest' | 'rating' | 'title'
 type BeforeInstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }> }
 
 function App() {
-  const { content: ALL_CONTENT, loading: contentLoading } = useContent()
+  const { content: ALL_CONTENT, loading: contentLoading, error: contentError, reload: reloadContent } = useContent()
   const hashState = getHashState()
   const [page,        setPage]        = useState<Page>((hashState.page as Page) || 'home')
   const [detailItem,  setDetailItem]  = useState<Content | null>(null)
@@ -243,6 +243,7 @@ function App() {
   const [heroTrailer, setHeroTrailer] = useState<Content | null>(null)
   const [account, setAccount] = useState<AccountUser | null>(() => getAccount())
   const [accountOpen, setAccountOpen] = useState(false)
+  const [accountMessage, setAccountMessage] = useState<string | undefined>()
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const progressSync = useRef<Record<string, number>>({})
 
@@ -332,7 +333,11 @@ function App() {
   const [, forceUpdate]               = useState(0)
 
   const toggleList = async (id: string) => {
-    if (!account) { setAccountOpen(true); return }
+    if (!account) {
+      setAccountMessage('Sign in or create an account to save titles to your watchlist.')
+      setAccountOpen(true)
+      return
+    }
     const included = myList.includes(id)
     setMyList(list => included ? list.filter(x => x !== id) : [...list, id])
     try {
@@ -357,6 +362,11 @@ function App() {
   const navigate = (p: Page) => {
     setPage(p); setMenuOpen(false); setDetailItem(null); setSearchVal('')
     setHash(p)
+  }
+
+  const requireAccount = (message?: string) => {
+    setAccountMessage(message)
+    setAccountOpen(true)
   }
 
   const openDetail = (item: Content) => {
@@ -397,9 +407,9 @@ function App() {
   const searchResults = useMemo(() =>
     searchVal.trim().length > 1
       ? latestFirst(ALL_CONTENT.filter(c =>
-          c.title.toLowerCase().includes(searchVal.toLowerCase()) ||
-          c.genre.toLowerCase().includes(searchVal.toLowerCase()) ||
-          (c.cast ?? []).some(a => a.toLowerCase().includes(searchVal.toLowerCase()))
+          c.title.toLowerCase().includes(searchVal.trim().toLowerCase()) ||
+          c.genre.toLowerCase().includes(searchVal.trim().toLowerCase()) ||
+          (c.cast ?? []).some(a => a.toLowerCase().includes(searchVal.trim().toLowerCase()))
         ))
       : [],
     [searchVal, ALL_CONTENT]
@@ -408,10 +418,11 @@ function App() {
   const accountDialog = accountOpen ? (
     <AccountDialog
       user={account}
-      onClose={() => setAccountOpen(false)}
+      onClose={() => { setAccountOpen(false); setAccountMessage(undefined) }}
       onSignOut={() => { clearAccount(); setAccount(null); setMyList([]) }}
       onNavigate={page => navigate(page)}
-      onSuccess={user => { setAccount(user); setAccountOpen(false) }}
+      onSuccess={user => { setAccount(user); setAccountOpen(false); setAccountMessage(undefined) }}
+      message={accountMessage}
     />
   ) : null
 
@@ -430,7 +441,7 @@ function App() {
           onBack={() => setDetailItem(null)}
           onSelect={openDetail}
           onNavigate={(p) => { setDetailItem(null); navigate(p as Page) }}
-          onRequireAccount={() => setAccountOpen(true)}
+          onRequireAccount={message => requireAccount(message)}
           onProgress={(playingItem, position, duration) => syncProgress(playingItem, position, duration, detailItem.id)}
         />
         {accountDialog}
@@ -498,13 +509,15 @@ function App() {
 
         <div className="nav-right">
           {installPrompt && <button className="install-button" onClick={installApp}>Install app</button>}
-          <div className="nav-search">
+          <div className="nav-search" role="search">
             <Search size={15} />
             <input
               value={searchVal} onChange={e => setSearchVal(e.target.value)}
-              placeholder="Search titles, genres, cast…" aria-label="Search"
+              onKeyDown={event => { if (event.key === 'Escape') setSearchVal('') }}
+              placeholder="Search titles, genres, cast…" aria-label="Search titles, genres, or cast"
+              aria-controls="search-results"
             />
-            {searchVal && <button onClick={() => setSearchVal('')} className="nav-search-clear"><X size={14} /></button>}
+            {searchVal && <button onClick={() => setSearchVal('')} className="nav-search-clear" aria-label="Clear search"><X size={14} /></button>}
           </div>
           <button className="icon-btn menu-toggle" onClick={() => setMenuOpen(v => !v)} aria-label="Menu">
             {menuOpen ? <X size={20} /> : <Menu size={20} />}
@@ -516,28 +529,45 @@ function App() {
       </header>
 
       <main>
+        {contentLoading && ALL_CONTENT.length === 0 && (
+          <div className="content-loading" role="status"><div className="loading-spinner" /><p>Finding something to watch…</p></div>
+        )}
+        {!contentLoading && contentError && ALL_CONTENT.length === 0 && (
+          <div className="content-loading content-error" role="alert">
+            <AlertCircle size={34} />
+            <h1>We couldn’t load the catalog.</h1>
+            <p>Check your connection and try again.</p>
+            <button className="retry-button" onClick={() => reloadContent()}><RefreshCw size={15} /> Try again</button>
+          </div>
+        )}
+        {!contentLoading && !contentError && ALL_CONTENT.length === 0 && (
+          <div className="content-loading" role="status"><Film size={40} /><h1>No titles available yet.</h1><p>Check back soon for something new to watch.</p></div>
+        )}
+        {contentError && ALL_CONTENT.length > 0 && (
+          <div className="catalog-refresh-notice" role="status">
+            <AlertCircle size={16} /><span>Showing saved titles. We couldn’t refresh the catalog.</span>
+            <button onClick={() => reloadContent()}><RefreshCw size={14} /> Retry</button>
+          </div>
+        )}
 
         {/* ── SEARCH ── */}
-        {searchVal.length > 1 && (
-          <section className="search-results-page">
-            <h2>Results for "<em>{searchVal}</em>"</h2>
+        {searchVal.trim().length > 1 && ALL_CONTENT.length > 0 && (
+          <section className="search-results-page" id="search-results" aria-live="polite">
+            <h2>Results for "<em>{searchVal.trim()}</em>"</h2>
             {searchResults.length
-              ? <div className="grid padded">{searchResults.map(m => <Card key={m.id} item={m} onSelect={openDetail} />)}</div>
-              : <div className="empty-state"><Film size={32} /><p>Nothing found.</p></div>
+              ? <>
+                  <p className="search-result-count">{searchResults.length} title{searchResults.length === 1 ? '' : 's'} found</p>
+                  <div className="grid padded">{searchResults.map(m => <Card key={m.id} item={m} onSelect={openDetail} />)}</div>
+                </>
+              : <div className="empty-state"><Film size={32} /><p>No titles match “{searchVal.trim()}”. Try another title, genre, or cast member.</p><button onClick={() => setSearchVal('')}>Clear search</button></div>
             }
           </section>
         )}
 
         {/* ── HOME ── */}
-        {searchVal.length <= 1 && page === 'home' && contentLoading && (
-          <div className="content-loading"><div className="loading-spinner" /><p>Loading…</p></div>
-        )}
-        {searchVal.length <= 1 && page === 'home' && !contentLoading && ALL_CONTENT.length === 0 && (
-          <div className="content-loading"><Film size={40} /><p>No content published yet.</p></div>
-        )}
-        {searchVal.length <= 1 && page === 'home' && !contentLoading && ALL_CONTENT.length > 0 && (
+        {searchVal.trim().length <= 1 && page === 'home' && !contentLoading && ALL_CONTENT.length > 0 && (
           <>
-            <HeroBanner items={latestFirst(ALL_CONTENT).slice(0, 8)} onPlay={openPlayer} onInfo={openDetail} onTrailer={setHeroTrailer} onRequireAccount={() => setAccountOpen(true)} />
+            <HeroBanner items={latestFirst(ALL_CONTENT).slice(0, 8)} onPlay={openPlayer} onInfo={openDetail} onTrailer={setHeroTrailer} onRequireAccount={() => requireAccount('Sign in or create an account to play this title.')} />
             <div className="rows-area">
 
               {/* Active genre banner */}
@@ -595,7 +625,7 @@ function App() {
         )}
 
         {/* ── MOVIES ── */}
-        {searchVal.length <= 1 && page === 'movies' && (
+        {searchVal.trim().length <= 1 && page === 'movies' && !contentLoading && ALL_CONTENT.length > 0 && (
           <section className="browse-page">
             <div className="page-hero movies-hero">
               <div className="page-hero-text">
@@ -620,7 +650,7 @@ function App() {
         )}
 
         {/* ── SERIES ── */}
-        {searchVal.length <= 1 && page === 'series' && (
+        {searchVal.trim().length <= 1 && page === 'series' && !contentLoading && ALL_CONTENT.length > 0 && (
           <section className="browse-page">
             <div className="page-hero series-hero">
               <div className="page-hero-text">
@@ -637,13 +667,14 @@ function App() {
               <span>Sort</span>
               {(['latest', 'rating', 'title'] as SortMode[]).map(mode => <button key={mode} className={sortMode === mode ? 'active' : ''} onClick={() => setSortMode(mode)}>{sortLabel(mode)}</button>)}
             </div>
-            <div className="grid padded">
-              {filteredSeries.map(s => <Card key={s.id} item={s} onSelect={openDetail} />)}
-            </div>
+            {filteredSeries.length
+              ? <div className="grid padded">{filteredSeries.map(s => <Card key={s.id} item={s} onSelect={openDetail} />)}</div>
+              : <div className="empty-state"><Tv size={32} /><p>No series in this genre.</p></div>
+            }
           </section>
         )}
 
-        {searchVal.length <= 1 && page === 'asian' && (
+        {searchVal.trim().length <= 1 && page === 'asian' && !contentLoading && ALL_CONTENT.length > 0 && (
           <section className="browse-page">
             <div className="page-hero asian-hero">
               <div className="page-hero-text">
@@ -659,7 +690,7 @@ function App() {
         )}
 
         {/* ── WATCHLIST ── */}
-        {searchVal.length <= 1 && page === 'watchlist' && (
+        {searchVal.trim().length <= 1 && page === 'watchlist' && !contentLoading && ALL_CONTENT.length > 0 && (
           <section className="browse-page">
             <div className="page-hero watchlist-hero">
               <div className="page-hero-text">
@@ -671,8 +702,9 @@ function App() {
               ? <div className="grid padded">{watchlist.map(m => <Card key={m.id} item={m} onSelect={openDetail} />)}</div>
               : (
                 <div className="empty-state full">
-                  <Heart size={36} /><p>Nothing saved yet.</p>
-                  <button onClick={() => navigate('home')}>Browse content</button>
+                  <Heart size={36} />
+                  <p>{account ? 'Nothing saved yet.' : 'Sign in to keep your watchlist synced across devices.'}</p>
+                  <button onClick={() => account ? navigate('home') : requireAccount('Sign in or create an account to build your watchlist.')}>{account ? 'Browse content' : 'Sign in'}</button>
                 </div>
               )
             }

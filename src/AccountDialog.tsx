@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { AlertCircle, Eye, EyeOff, LogIn, UserPlus, X, LogOut, Heart, Clock } from 'lucide-react'
 import { login, signup, type AccountUser } from './account'
 
-type Props = { user?: AccountUser | null; onSuccess: (user: AccountUser) => void; onSignOut?: () => void; onNavigate?: (page: 'watchlist' | 'home') => void; onClose: () => void }
+type Props = { user?: AccountUser | null; onSuccess: (user: AccountUser) => void; onSignOut?: () => void; onNavigate?: (page: 'watchlist' | 'home') => void; onClose: () => void; message?: string }
 
-export default function AccountDialog({ user, onSuccess, onSignOut, onNavigate, onClose }: Props) {
+export default function AccountDialog({ user, onSuccess, onSignOut, onNavigate, onClose, message }: Props) {
   const [mode, setMode] = useState<'login' | 'signup'>('login')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -46,7 +46,7 @@ export default function AccountDialog({ user, onSuccess, onSignOut, onNavigate, 
         <button className="account-modal-close" onClick={onClose} aria-label="Close account dialog"><X size={18} /></button>
         <p className="eyebrow">CINEFLIX ACCOUNT</p>
         <h2>{mode === 'login' ? 'Welcome back.' : 'Make it yours.'}</h2>
-        <p className="account-modal-sub">Save your watchlist and pick up where you left off on any device.</p>
+        <p className="account-modal-sub">{message || 'Sign in or create an account to save your watchlist and continue watching across devices.'}</p>
         {error && <div className="account-error"><AlertCircle size={15} /> {error}</div>}
         <form onSubmit={submit} className="account-form">
           {mode === 'signup' && <label>Name<input value={name} onChange={e => setName(e.target.value)} required placeholder="Your name" /></label>}

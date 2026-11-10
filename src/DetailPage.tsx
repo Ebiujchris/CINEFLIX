@@ -16,7 +16,7 @@ type Props = {
   onBack: () => void
   onSelect: (item: Content) => void
   onNavigate: (page: 'home' | 'movies' | 'series' | 'asian' | 'watchlist') => void
-  onRequireAccount: () => void
+  onRequireAccount: (message?: string) => void
   onProgress: (item: Content, position: number, duration: number) => void
 }
 
@@ -129,7 +129,7 @@ export default function DetailPage({ item, allContent, myList, onToggleList, onB
 
           {/* action buttons */}
           <div className="detail-actions">
-            <button className="btn-play-big" onClick={() => { if (!localStorage.getItem('cf_user_token')) { onRequireAccount() } else { setActiveEpisode(null); setShowPlayer(true) } }}>
+            <button className="btn-play-big" onClick={() => { if (!localStorage.getItem('cf_user_token')) { onRequireAccount('Sign in or create an account to play this title.') } else { setActiveEpisode(null); setShowPlayer(true) } }}>
               <Play size={18} fill="currentColor" /> Play {item.type === 'series' ? 'Series' : 'Now'}
             </button>
             {item.trailerUrl && (
@@ -137,7 +137,7 @@ export default function DetailPage({ item, allContent, myList, onToggleList, onB
                 <Play size={16} /> Trailer
               </button>
             )}
-            <button className="btn-list-big" onClick={() => { if (!myList.includes(item.id) && !localStorage.getItem('cf_user_token')) onRequireAccount(); else onToggleList(item.id) }} aria-label={inList ? 'Remove from list' : 'Add to list'}>
+            <button className="btn-list-big" onClick={() => { if (!myList.includes(item.id) && !localStorage.getItem('cf_user_token')) onRequireAccount('Sign in or create an account to save titles to your watchlist.'); else onToggleList(item.id) }} aria-label={inList ? 'Remove from list' : 'Add to list'}>
               {inList ? <><Check size={16} /> In My List</> : <><Plus size={16} /> My List</>}
             </button>
           </div>
@@ -169,7 +169,7 @@ export default function DetailPage({ item, allContent, myList, onToggleList, onB
                       className="ep-card"
                       onClick={() => {
                         if (!localStorage.getItem('cf_user_token')) {
-                          onRequireAccount()
+                          onRequireAccount('Sign in or create an account to watch episodes.')
                           return
                         }
                         setActiveEpisode({
