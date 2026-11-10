@@ -731,6 +731,7 @@ footer p { margin: 0; }
 }
 @media (max-width: 900px) {
   .main-nav { display: none; }
+  .nav-right { flex: 1 1 auto; min-width: 0; }
   .main-nav.open {
     display: flex; flex-direction: column; align-items: flex-start;
     position: absolute; top: 64px; left: 0; right: 0;
@@ -738,7 +739,8 @@ footer p { margin: 0; }
     padding: 12px 5vw; z-index: 99;
   }
   .main-nav.open .mobile-account-nav { display: flex; align-items: center; gap: 8px; color: var(--text); border-top: 1px solid var(--border); margin-top: 8px; padding-top: 14px; }
-  .menu-toggle { display: grid; }
+  .menu-toggle { display: grid; flex: 0 0 36px; }
+  .nav-search { min-width: 0; }
   .nav-right > .account-button { display: none; }
   .hero { min-height: 72vh; padding-bottom: 60px; }
   .hero-title { font-size: clamp(32px, 8vw, 56px); }
