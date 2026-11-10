@@ -405,23 +405,36 @@ function App() {
     [searchVal, ALL_CONTENT]
   )
 
+  const accountDialog = accountOpen ? (
+    <AccountDialog
+      user={account}
+      onClose={() => setAccountOpen(false)}
+      onSignOut={() => { clearAccount(); setAccount(null); setMyList([]) }}
+      onNavigate={page => navigate(page)}
+      onSuccess={user => { setAccount(user); setAccountOpen(false) }}
+    />
+  ) : null
+
   // full-screen player
-  if (playerItem) return <Player item={playerItem} onClose={() => setPlayerItem(null)} onProgress={(position, duration) => syncProgress(playerItem, position, duration)} />
+  if (playerItem) return <><Player item={playerItem} onClose={() => setPlayerItem(null)} onProgress={(position, duration) => syncProgress(playerItem, position, duration)} />{accountDialog}</>
 
   // detail page
   if (detailItem) {
     return (
-      <DetailPage
-        item={detailItem}
-        allContent={ALL_CONTENT}
-        myList={myList}
-        onToggleList={toggleList}
-        onBack={() => setDetailItem(null)}
-        onSelect={openDetail}
+      <>
+        <DetailPage
+          item={detailItem}
+          allContent={ALL_CONTENT}
+          myList={myList}
+          onToggleList={toggleList}
+          onBack={() => setDetailItem(null)}
+          onSelect={openDetail}
           onNavigate={(p) => { setDetailItem(null); navigate(p as Page) }}
           onRequireAccount={() => setAccountOpen(true)}
           onProgress={(playingItem, position, duration) => syncProgress(playingItem, position, duration, detailItem.id)}
-      />
+        />
+        {accountDialog}
+      </>
     )
   }
 
@@ -536,7 +549,7 @@ function App() {
               )}
 
               {/* Continue Watching */}
-              <div className="row continue-watching-row">
+              {account && <div className="row continue-watching-row">
                   <div className="row-header">
                     <span className="row-icon"><RotateCcw size={15} /></span>
                     <h3>Continue Watching</h3>
@@ -551,7 +564,7 @@ function App() {
                   ) : (
                     <p className="continue-watching-empty">Start a movie or series and it will appear here.</p>
                   )}
-                </div>
+                </div>}
 
               <Row title={activeGenre ? `Trending — ${activeGenre}` : 'Trending Now'} icon={<TrendingUp size={16} />} items={filteredAll.slice(0, 10)} onSelect={openDetail} />
 
@@ -698,15 +711,7 @@ function App() {
           </div>
         </div>
       )}
-      {accountOpen && (
-        <AccountDialog
-          user={account}
-          onClose={() => setAccountOpen(false)}
-          onSignOut={() => { clearAccount(); setAccount(null); setMyList([]) }}
-          onNavigate={page => navigate(page)}
-          onSuccess={user => { setAccount(user); setAccountOpen(false) }}
-        />
-      )}
+      {accountDialog}
     </div>
   )
 }
